@@ -34,7 +34,7 @@ public class MainApp {
     Vertx          vertx        = Vertx.vertx(options);
     Future<String> deployFuture = vertx.deployVerticle(new AuctionServiceVerticle());
     deployFuture.onComplete(ar -> {
-      if (System.getProperties().getProperty("profile") == null) {
+      if (System.getProperties().getProperty("profile") == null) { //说明实在IDE里运行的,这时候等待命令行输入quit来优雅的退出!
         System.out.println("You're using Eclipse; click in this console and " + "input quit/exit to call System.exit() and run the shutdown routine.");
 
         boolean loopz = true;
