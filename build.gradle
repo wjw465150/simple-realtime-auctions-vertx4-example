@@ -1,0 +1,74 @@
+//@wjw_note: 根据传进来的profile系统属性来打包.例如: gradlew clean build -x test
+//@wjw_note: 单jar运行: java -jar build\libs\simple-realtime-auctions-vertx3-example-1.0-prod-fat
+plugins {
+  id 'java'
+  id 'application' 
+ 
+   //gradle的插件，shadow这个插件可以构建的时候把引用的jar包合进去
+  //加上此插件后会生成一个shadowJar的task
+  id "com.github.johnrengelman.shadow" version "7.0.0"
+}
+
+group = "com.github.wjw"
+version = "1.0"
+
+description = """使用Websockets和Vert.x进行实时竞价"""
+
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+[compileJava, compileTestJava]*.options*.encoding = 'UTF-8'
+
+repositories {
+  mavenLocal()
+  maven { url "https://maven.aliyun.com/nexus/content/groups/public/" }  //优先使用阿里的镜像
+  mavenCentral()
+}
+
+def vertxVersion = "4.3.7"
+def junitJupiterVersion = "5.7.0"
+
+def mainVerticleName = "com.github.wjw.realtimeauctions.AuctionServiceVerticle"
+def launcherClassName = "io.vertx.core.Launcher"
+
+application {
+  mainClass = launcherClassName
+}
+
+dependencies {
+    implementation platform("io.vertx:vertx-stack-depchain:$vertxVersion")  //Vert.x Stack Depchain,集中了Vert.x的依赖版本管理,这样后面在导入Vert.x模块时就不必再填写版本号了!
+    implementation "io.vertx:vertx-core"
+    implementation "io.vertx:vertx-web"
+    implementation "io.vertx:vertx-config"
+    
+    implementation "com.fasterxml.jackson.core:jackson-databind"
+    
+    implementation 'ch.qos.logback:logback-classic:1.2.10'
+    
+    testImplementation "io.vertx:vertx-junit5"
+    testImplementation "org.junit.jupiter:junit-jupiter:$junitJupiterVersion"
+}
+
+//@wjw_note(for fatjar):
+shadowJar {
+  archiveClassifier = "fat"
+  manifest {  //<--add
+    attributes "Main-Class": launcherClassName
+    attributes "Main-Verticle": mainVerticleName
+  }
+  
+  mergeServiceFiles()
+}
+
+run {
+  //@wjw_note需要终端交互的必须设置
+  setStandardInput System.in
+  setStandardOutput System.out
+  setErrorOutput System.err
+  
+  args = ["run", mainVerticleName]
+  //args = ["run", mainVerticleName, "--launcher-class=$launcherClassName"]
+}
+
+test {
+  useJUnitPlatform()
+}
