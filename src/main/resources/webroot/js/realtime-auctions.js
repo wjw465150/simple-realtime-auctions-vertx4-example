@@ -24,6 +24,7 @@ function loadCurrentPrice() {
 /* 注册EventBus的处理器来更新服务器推送来的价格 */
 function registerHandlerForUpdateCurrentPriceAndFeed() {
     var eventBus = new EventBus('http://localhost:9090/eventbus');
+    eventBus.enableReconnect(true);
     eventBus.onopen = function () {
         eventBus.registerHandler('auction.' + auction_id, function (error, message) {
             document.getElementById('current_price').innerHTML = 'EUR ' + JSON.parse(message.body).price;
