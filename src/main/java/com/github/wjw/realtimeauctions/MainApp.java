@@ -37,19 +37,24 @@ public class MainApp {
       if (System.getProperties().getProperty("profile") == null) { //说明实在IDE里运行的,这时候等待命令行输入quit来优雅的退出!
         System.out.println("You're using Eclipse; click in this console and " + "input quit/exit to call System.exit() and run the shutdown routine.");
 
-        boolean loopz = true;
-        try (BufferedReader br = new BufferedReader(new InputStreamReader(System.in))) {
-          while (loopz) {
-            String userInput = br.readLine();
-            System.out.println("input => " + userInput);
-            if (userInput.equalsIgnoreCase("quit") || userInput.equalsIgnoreCase("exit")) {
-              System.exit(0);
+        Thread inputThread = new Thread(() -> {
+          boolean loopz = true;
+          try (BufferedReader br = new BufferedReader(new InputStreamReader(System.in))) {
+            while (loopz) {
+              String userInput = br.readLine();
+              System.out.println("input => " + userInput);
+              if (userInput.equalsIgnoreCase("quit") || userInput.equalsIgnoreCase("exit")) {
+                System.exit(0);
+              }
             }
+          } catch (Exception er) {
+            er.printStackTrace();
+            loopz = false;
           }
-        } catch (Exception er) {
-          er.printStackTrace();
-          loopz = false;
-        }
+        });
+        inputThread.setDaemon(true);
+        inputThread.start();
+        
       }
     });
 
