@@ -39,8 +39,8 @@ public class AuctionServiceVerticle extends AbstractVerticle {
     router.route().handler(ResponseTimeHandler.create()); //此处理程序设置标头`x-response-time`响应标头，其中包含从收到请求到写入响应标头的时间，以毫秒为单位
     router.route().handler(LoggerHandler.create()); //Vert.x-Web 包含一个处理程序`LoggerHandler`，您可以使用它来记录 HTTP 请求。 您应该在任何可能使 `RoutingContext` 失败的处理程序之前安装此处理程序
 
-    router.route("/eventbus/*").subRouter(eventBusHandler());
-    router.route("/api/*").subRouter(auctionApiRouter());
+    router.route("/eventbus/*").subRouter(eventBusHandler());  //安装处理event-bus的子路由
+    router.route("/api/*").subRouter(auctionApiRouter());  //安装处理竞价的子路由
 
     vertx.createHttpServer()
         .requestHandler(router)
@@ -53,6 +53,16 @@ public class AuctionServiceVerticle extends AbstractVerticle {
 
   }
 
+  /**
+   * Event bus handler.
+   * <p>
+   * 将 SockJS 处理程序桥接到 Vert.x 事件总线。 
+   * 这基本上安装了一个内置的 SockJS 套接字处理程序，
+   * 它接收 SockJS 流量并将其桥接到事件总线，
+   * 从而允许您将服务器端 Vert.x 事件总线扩展到浏览器
+   * 
+   * @return the router
+   */
   private Router eventBusHandler() {
     SockJSBridgeOptions options = new SockJSBridgeOptions();
     options.addOutboundPermitted(new PermittedOptions().setAddressRegex("auction\\.[0-9]+"));
@@ -61,15 +71,19 @@ public class AuctionServiceVerticle extends AbstractVerticle {
 
     return sockJSHandler.bridge(options, event -> {
       if (event.type() == BridgeEventType.SOCKET_CREATED) {
-        logger.info("A socket was created");
+        logger.info("A WebSocket was created,uri: "+event.socket().uri());
+      } else if (event.type() == BridgeEventType.SOCKET_CLOSED) {
+        logger.info("A WebSocket was closed,uri: "+event.socket().uri());
       }
-      event.complete(true);
+
+      event.complete(true);  //使用“true”完成`Promise`以启用进一步处理
     });
   }
 
   /**
    * Auction api router.
-   *
+   * <p>
+   * 处理客户端发来的HTTP竞拍信息
    * @return the router
    */
   private Router auctionApiRouter() {
@@ -90,10 +104,20 @@ public class AuctionServiceVerticle extends AbstractVerticle {
     return router;
   }
 
+  /**
+   * Error handler.
+   *
+   * @return the error handler
+   */
   private ErrorHandler errorHandler() {
     return ErrorHandler.create(vertx, true);
   }
 
+  /**
+   * Static handler.
+   *
+   * @return the static handler
+   */
   private StaticHandler staticHandler() {
     return StaticHandler.create()
         .setCachingEnabled(false);

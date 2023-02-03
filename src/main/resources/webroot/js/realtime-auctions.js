@@ -5,10 +5,11 @@ function init() {
     registerHandlerForUpdateCurrentPriceAndFeed();
 };
 
+/* 获取当前竞拍的价格 */
 function loadCurrentPrice() {
     var xmlhttp = (window.XMLHttpRequest) ? new XMLHttpRequest() : new ActiveXObject("Microsoft.XMLHTTP");
     xmlhttp.onreadystatechange = function () {
-        if (xmlhttp.readyState == 4) {
+        if (xmlhttp.readyState == 4) {  //响应已完成,您可以获取并使用服务器的响应了
             if (xmlhttp.status == 200) {
                 document.getElementById('current_price').innerHTML = 'EUR ' + JSON.parse(xmlhttp.responseText).price.toFixed(2);
             } else {
@@ -20,6 +21,7 @@ function loadCurrentPrice() {
     xmlhttp.send();
 };
 
+/* 注册EventBus的处理器来更新服务器推送来的价格 */
 function registerHandlerForUpdateCurrentPriceAndFeed() {
     var eventBus = new EventBus('http://localhost:9090/eventbus');
     eventBus.onopen = function () {
@@ -30,12 +32,13 @@ function registerHandlerForUpdateCurrentPriceAndFeed() {
     }
 };
 
+/* 竞拍出价 */
 function bid() {
     var newPrice = parseFloat(Math.round(document.getElementById('my_bid_value').value.replace(',','.') * 100) / 100).toFixed(2);
 
     var xmlhttp = (window.XMLHttpRequest) ? new XMLHttpRequest() : new ActiveXObject("Microsoft.XMLHTTP");
     xmlhttp.onreadystatechange = function () {
-        if (xmlhttp.readyState == 4) {
+        if (xmlhttp.readyState == 4) {  //响应已完成,您可以获取并使用服务器的响应了
             if (xmlhttp.status == 200) {
                 document.getElementById('error_message').innerHTML = '';
             } else {
@@ -43,7 +46,7 @@ function bid() {
             }
         }
     };
-    xmlhttp.open("PATCH", "http://localhost:9090/api/auctions/" + auction_id);
+    xmlhttp.open("PATCH", "http://localhost:9090/api/auctions/" + auction_id); //发送竞价
     xmlhttp.setRequestHeader("Content-Type", "application/json");
     xmlhttp.send(JSON.stringify({price: newPrice}));
 };
