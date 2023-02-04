@@ -6,6 +6,8 @@ import java.io.InputStreamReader;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.VertxOptions;
+import io.vertx.core.spi.cluster.ClusterManager;
+import io.vertx.spi.cluster.zookeeper.ZookeeperClusterManager;
 
 public class MainApp {
   public static void main(String[] args) {
@@ -31,41 +33,55 @@ public class MainApp {
     options.setBlockedThreadCheckInterval(blockedThreadCheckInterval);
 
     // 部署 Verticle
-    Vertx          vertx        = Vertx.vertx(options);
+    if (args.length > 0 && args[0].equalsIgnoreCase("cluster")) {
+      //@wjw_note: 加载zookeeper配置文件!
+      System.getProperties().setProperty("vertx.zookeeper.config", "config/zookeeper.json");
+      ClusterManager mgr = new ZookeeperClusterManager();
+      options.setClusterManager(mgr);
+
+      Vertx.clusteredVertx(options).onSuccess(it -> {
+        deployVerticle(it);
+      }).onFailure(throwable -> {
+        throwable.printStackTrace();
+        System.exit(-1);
+      });
+    } else {
+      Vertx vertx = Vertx.vertx(options);
+      deployVerticle(vertx);
+    }
+  }
+
+  private static void deployVerticle(Vertx vertx) {
     Future<String> deployFuture = vertx.deployVerticle(new AuctionServiceVerticle());
     deployFuture.onComplete(ar -> {
       if (System.getProperties().getProperty("profile") == null) { //说明实在IDE里运行的,这时候等待命令行输入quit来优雅的退出!
         System.out.println("You're using Eclipse; click in this console and " + "input quit/exit to call System.exit() and run the shutdown routine.");
 
-        Thread inputThread = new Thread(() -> {
-          boolean loopz = true;
-          try (BufferedReader br = new BufferedReader(new InputStreamReader(System.in))) {
-            while (loopz) {
-              String userInput = br.readLine();
-              System.out.println("input => " + userInput);
-              if (userInput.equalsIgnoreCase("quit") || userInput.equalsIgnoreCase("exit")) {
-                System.exit(0);
-              }
-            }
-          } catch (Exception er) {
-            er.printStackTrace();
-            loopz = false;
-          }
-        });
-        inputThread.setDaemon(true);
-        inputThread.start();
-        
+        startIdeConsole(vertx);
       }
     });
-
-    //安全退出
-    Runtime.getRuntime().addShutdownHook(new Thread() {
-      public void run() {
-        System.out.println("Shutdown hook run.");
-        vertx.close();
-      }
-    });
-
   }
 
+  private static void startIdeConsole(Vertx vertx) {
+    Thread inputThread = new Thread(() -> {
+      boolean loopz = true;
+      try (BufferedReader br = new BufferedReader(new InputStreamReader(System.in))) {
+        while (loopz) {
+          String userInput = br.readLine();
+          System.out.println("input => " + userInput);
+          if (userInput.equalsIgnoreCase("quit") || userInput.equalsIgnoreCase("exit")) {
+            vertx.close().onComplete(it -> {
+              System.out.println("Shutdown hook run.");
+              System.exit(0);
+            });
+          }
+        }
+      } catch (Exception er) {
+        er.printStackTrace();
+        loopz = false;
+      }
+    });
+    inputThread.setDaemon(true);
+    inputThread.start();
+  }
 }
