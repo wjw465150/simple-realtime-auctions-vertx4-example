@@ -17,16 +17,18 @@ function loadCurrentPrice() {
             }
         }
     };
-    xmlhttp.open("GET", "http://localhost:9090/api/auctions/" + auction_id);
+    xmlhttp.open("GET", "/api/auctions/" + auction_id);
+    xmlhttp.open("GET", "/api/auctions/" + auction_id);
     xmlhttp.send();
 };
 
 /* 注册EventBus的处理器来更新服务器推送来的价格 */
 function registerHandlerForUpdateCurrentPriceAndFeed() {
-    var eventBus = new EventBus('http://localhost:9090/eventbus');
+    //var eventBus = new EventBus('http://localhost:9090/eventbus');
+    var eventBus = new EventBus('/eventbus');
     eventBus.enableReconnect(true);
     eventBus.onopen = function () {
-        eventBus.registerHandler('auction.' + auction_id, function (error, message) {
+        eventBus.registerHandler('auction.' + auction_id, function (error, message) {  //设置一个处理器以接收消息
             document.getElementById('current_price').innerHTML = 'EUR ' + JSON.parse(message.body).price;
             document.getElementById('feed').value += 'New offer: EUR ' + JSON.parse(message.body).price + '\n';
         });
@@ -47,7 +49,7 @@ function bid() {
             }
         }
     };
-    xmlhttp.open("PATCH", "http://localhost:9090/api/auctions/" + auction_id); //发送竞价
+    xmlhttp.open("PATCH", "/api/auctions/" + auction_id); //发送竞价
     xmlhttp.setRequestHeader("Content-Type", "application/json");
     xmlhttp.send(JSON.stringify({price: newPrice}));
 };
