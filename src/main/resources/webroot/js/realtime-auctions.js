@@ -33,6 +33,10 @@ function registerHandlerForUpdateCurrentPriceAndFeed() {
             document.getElementById('feed').value += 'New offer: EUR ' + JSON.parse(message.body).price + '\n';
         });
     }
+    
+    eventBus.onclose = function(event) {
+     console.log('close event: %o', event);
+    };
 };
 
 /* 竞拍出价 */
