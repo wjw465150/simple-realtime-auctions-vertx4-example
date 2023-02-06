@@ -22,7 +22,7 @@ public class MainApp {
 
       System.setProperty("vertxweb.environment", "dev");
       //@wjw_note: 调试发现,当有众多的小js,css文件时,,Vertx总是用原始源刷新缓存中存储的版本,严重影响性能      
-      //System.setProperty("vertx.disableFileCaching", "true");
+      System.setProperty("vertx.disableFileCaching", "true");
     }
 
     //防止调试的时候出现`BlockedThreadChecker`日志信息
