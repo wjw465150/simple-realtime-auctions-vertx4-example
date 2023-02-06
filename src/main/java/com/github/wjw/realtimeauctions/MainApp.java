@@ -44,7 +44,7 @@ public class MainApp {
     }
 
     // 部署 Verticle
-    if (args.length > 0 && args[0].equalsIgnoreCase("cluster")) {
+    if (args.length > 0 && args[0].equalsIgnoreCase("-cluster")) {
       //@wjw_note: 加载zookeeper配置文件!
       System.getProperties().setProperty("vertx.zookeeper.config", "config/zookeeper-" + profile + ".json");
       ClusterManager mgr = new ZookeeperClusterManager();
