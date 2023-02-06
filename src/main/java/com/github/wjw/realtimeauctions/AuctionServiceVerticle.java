@@ -38,11 +38,25 @@ public class AuctionServiceVerticle extends AbstractVerticle {
 
   @Override
   public void start(Promise<Void> startPromise) throws Exception {
-    Properties sysProperties     = System.getProperties();
-    String     vertx_config_path = sysProperties.getProperty("vertx-config-path");
-    if (vertx_config_path == null) { //如果系统属性`vertx-config-path`没有被设置
-      vertx_config_path = "config/conf.json";
-    }
+    String vertx_config_path;
+    String profile;
+    { //->校验是否指定了`profile`参数,和相应的配置文件是否存在!
+      Properties sysProperties = System.getProperties();
+      profile = sysProperties.getProperty("profile");
+      if (profile == null) {
+        System.out.println("Please set 'profile'");
+        this.vertx.close();
+        return;
+      }
+
+      //@wjw_note: 为了从classpath里加载配置文件!
+      //也可以通过系统属性`vertx-config-path`来覆盖: java -jar my-vertx-first-app-1.0-SNAPSHOT--prod-fat.jar -Dvertx-config-path=config/conf-prod.json
+      vertx_config_path = sysProperties.getProperty("vertx-config-path");
+      if (vertx_config_path == null) { //如果系统属性`vertx-config-path`没有被设置
+        vertx_config_path = "config/conf-" + profile + ".json";
+      }
+
+    } //<-校验是否指定了`profile`参数,和相应的配置文件是否存在!
 
     //加载配置文件
     ConfigStoreOptions     classpathStore = new ConfigStoreOptions()
@@ -62,13 +76,18 @@ public class AuctionServiceVerticle extends AbstractVerticle {
           startPromise.fail(e);
         }
       }
+      logger.info("!!!!!!=================Vertx App profile:" + profile + "=================!!!!!!");
 
       Router router = Router.router(vertx);
 
-      router.route().failureHandler(errorHandler()); //将故障处理程序附加到路由故障处理程序列表。
-      router.route().handler(staticHandler()); //Vert.x-Web 带有一个开箱即用的处理程序，用于提供静态 Web 资源
-      router.route().handler(ResponseTimeHandler.create()); //此处理程序设置标头`x-response-time`响应标头，其中包含从收到请求到写入响应标头的时间，以毫秒为单位
-      router.route().handler(LoggerHandler.create()); //Vert.x-Web 包含一个处理程序`LoggerHandler`，您可以使用它来记录 HTTP 请求。 您应该在任何可能使 `RoutingContext` 失败的处理程序之前安装此处理程序
+      { //先route基础handler
+        router.route().failureHandler(errorHandler()); //将故障处理程序附加到路由故障处理程序列表。
+        router.route().handler(staticHandler()); //Vert.x-Web 带有一个开箱即用的处理程序，用于提供静态 Web 资源
+        router.route().handler(ResponseTimeHandler.create()); //此处理程序设置标头`x-response-time`响应标头，其中包含从收到请求到写入响应标头的时间，以毫秒为单位
+        if (profile.equalsIgnoreCase("prod") == false) { //生产状态不记录web日志
+          router.route().handler(LoggerHandler.create()); //Vert.x-Web 包含一个处理程序`LoggerHandler`，您可以使用它来记录 HTTP 请求。 您应该在任何可能使 `RoutingContext` 失败的处理程序之前安装此处理程序
+        }
+      }
 
       router.route("/eventbus/*").subRouter(eventBusHandler()); //安装处理event-bus的子路由
       router.route("/api/*").subRouter(auctionApiRouter()); //安装处理竞价的子路由
@@ -124,6 +143,7 @@ public class AuctionServiceVerticle extends AbstractVerticle {
     Router router = Router.router(vertx);
     router.route().handler(BodyHandler.create()); //`BodyHandler` 允许您检索请求正文、限制正文大小和处理文件上传。
 
+    //只接收和返回json格式数据
     router.route().consumes("application/json");
     router.route().produces("application/json");
 

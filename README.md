@@ -59,7 +59,8 @@ WebSockets 解决了许多阻止 HTTP 协议适用于现代实时应用程序的
 
 ```javascript
 function registerHandlerForUpdateCurrentPriceAndFeed() {
-    var eventBus = new EventBus('http://localhost:9090/eventbus');
+    //var eventBus = new EventBus('http://localhost:9090/eventbus');
+    var eventBus = new EventBus('/eventbus');
     eventBus.onopen = function () {
         eventBus.registerHandler('auction.' + auction_id, function (error, message) {
             document.getElementById('current_price').innerHTML = 'EUR ' + JSON.parse(message.body).price;
@@ -85,7 +86,7 @@ function bid() {
             }
         }
     };
-    xmlhttp.open("PATCH", "http://localhost:9090/api/auctions/" + auction_id);  //发送竞价
+    xmlhttp.open("PATCH", "/api/auctions/" + auction_id);  //发送竞价
     xmlhttp.setRequestHeader("Content-Type", "application/json");
     xmlhttp.send(JSON.stringify({price: newPrice}));
 };

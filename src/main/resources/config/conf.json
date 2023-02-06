@@ -1,4 +1,0 @@
-{ 
-    "http.port" : 9090,
-    "logging": "config/log.xml" 
-}

@@ -1,0 +1,4 @@
+{ 
+    "http.port" : 9091,
+    "logging": "config/log-test.xml" 
+}

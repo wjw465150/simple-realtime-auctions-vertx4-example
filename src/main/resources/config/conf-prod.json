@@ -1,0 +1,4 @@
+{ 
+    "http.port" : 9092,
+    "logging": "config/log-prod.xml" 
+}

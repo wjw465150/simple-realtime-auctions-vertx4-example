@@ -1,5 +1,6 @@
-//@wjw_note: 根据传进来的profile系统属性来打包.例如: gradlew clean build -x test
-//@wjw_note: 单jar运行: java -jar build\libs\simple-realtime-auctions-vertx3-example-1.0-prod-fat
+//@wjw_note: 根据传进来的profile系统属性来打包.例如: gradlew clean build -x test -Dprofile=test
+//@wjw_note: 单jar运行: java -jar build\libs\simple-realtime-auctions-vertx3-example-1.0-test-fat -Dprofile=test
+
 plugins {
   id 'java'
   id 'application' 
@@ -9,8 +10,29 @@ plugins {
   id "com.github.johnrengelman.shadow" version "7.0.0"
 }
 
+//@wjw_note: 根据传进来的profile系统属性来打包.
+def profileName = System.getProperty("profile") ?: "dev"
+//def profileName = System.getProperty("profile")
+if(profileName==null) {
+  throw new BuildCancelledException("must pass The environment variable 'profile'\r\n"
+                                   +"For example: gradlew clean build -x test -Dprofile=dev")
+}
+processResources {
+    include 'META-INF/services/**'
+    include '**/webroot/**'
+    include '**/public/**'
+    include '**/static/**'
+    include '**/templates/**'
+    include '**/tpl/**'
+    include '**/i18n/**'
+    
+    include { FileTreeElement details ->
+        details.isDirectory()==true || details.file.name.contains("-${profileName}.")  /* 根据传入的profileName系统属性来过滤 */
+    }
+}
+
 group = "com.github.wjw"
-version = "1.0"
+version = "1.0-${profileName}"
 
 description = """使用Websockets和Vert.x进行实时竞价"""
 

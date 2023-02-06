@@ -2,6 +2,7 @@ package com.github.wjw.realtimeauctions;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+import java.util.Properties;
 
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
@@ -32,10 +33,20 @@ public class MainApp {
     }
     options.setBlockedThreadCheckInterval(blockedThreadCheckInterval);
 
+    // 校验是否指定了`profile`参数,和相应的配置文件是否存在!
+    String profile;
+    Properties sysProperties = System.getProperties();
+    profile = sysProperties.getProperty("profile");
+    if (profile == null) {
+      System.out.println("Please set 'profile'");
+      System.exit(-1);
+      return;
+    }
+
     // 部署 Verticle
     if (args.length > 0 && args[0].equalsIgnoreCase("cluster")) {
       //@wjw_note: 加载zookeeper配置文件!
-      System.getProperties().setProperty("vertx.zookeeper.config", "config/zookeeper.json");
+      System.getProperties().setProperty("vertx.zookeeper.config", "config/zookeeper-" + profile + ".json");
       ClusterManager mgr = new ZookeeperClusterManager();
       options.setClusterManager(mgr);
 
@@ -54,7 +65,7 @@ public class MainApp {
   private static void deployVerticle(Vertx vertx) {
     Future<String> deployFuture = vertx.deployVerticle(new AuctionServiceVerticle());
     deployFuture.onComplete(ar -> {
-      if (System.getProperties().getProperty("profile") == null) { //说明实在IDE里运行的,这时候等待命令行输入quit来优雅的退出!
+      if (System.getProperties().getProperty("profile").equalsIgnoreCase("dev")) { //说明在IDE里运行的,这时候等待命令行输入quit来优雅的退出!
         System.out.println("You're using Eclipse; click in this console and " + "input quit/exit to call System.exit() and run the shutdown routine.");
 
         startIdeConsole(vertx);
