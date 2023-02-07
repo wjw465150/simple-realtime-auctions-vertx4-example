@@ -38,9 +38,6 @@ function registerHandlerForUpdateCurrentPriceAndFeed() {
     eventBus.onclose = function(event) {
      console.log('close event: %o', event);
     };
-    
-    eventBus2 = new EventBus('/eventbus');
-    eventBus2.enableReconnect(true);
 };
 
 /* 竞拍出价 */

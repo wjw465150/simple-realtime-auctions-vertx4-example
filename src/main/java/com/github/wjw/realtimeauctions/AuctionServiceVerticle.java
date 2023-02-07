@@ -114,6 +114,7 @@ public class AuctionServiceVerticle extends AbstractVerticle {
   private Router eventBusHandler() {
     SockJSBridgeOptions bridgeOptions = new SockJSBridgeOptions();
     bridgeOptions.addOutboundPermitted(new PermittedOptions().setAddressRegex("auction\\.[0-9]+"));
+    bridgeOptions.addInboundPermitted(new PermittedOptions().setAddressRegex("auction\\.[0-9]+"));
 
     SockJSHandler sockJSHandler = SockJSHandler.create(vertx);
 
@@ -122,6 +123,8 @@ public class AuctionServiceVerticle extends AbstractVerticle {
         logger.info("A WebSocket was created,uri: " + event.socket().uri());
       } else if (event.type() == BridgeEventType.SOCKET_CLOSED) {
         logger.info("A WebSocket was closed,uri: " + event.socket().uri());
+      } else if (event.type() == BridgeEventType.REGISTERED) {
+        logger.info("A WebSocket was registered,uri: " + event.getRawMessage().encode());
       }
 
       event.complete(true); //使用“true”完成`Promise`以启用进一步处理
