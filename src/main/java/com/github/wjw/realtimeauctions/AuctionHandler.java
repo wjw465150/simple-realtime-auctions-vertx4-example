@@ -59,7 +59,7 @@ public class AuctionHandler {
       this.repository.save(auctionRequest); // TODO: 这里是否要改成等待save成功?
       
       //@wjw_note: 先向eventBus发布地址为`auction.{auction_id}`的消息,消息内容是接受到的客户端传来的主体数据
-      context.vertx().eventBus().publish("auction." + auctionId, context.body().asString());
+      context.vertx().eventBus().publish("auction." + auctionId, context.body().asJsonObject());
 
       context.response()
           .setStatusCode(200)

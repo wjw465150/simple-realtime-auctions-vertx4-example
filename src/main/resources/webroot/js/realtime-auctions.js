@@ -30,8 +30,8 @@ function registerHandlerForUpdateCurrentPriceAndFeed() {
     eventBus.enableReconnect(true);
     eventBus.onopen = function () {
         eventBus.registerHandler('auction.' + auction_id, function (error, message) {  //设置一个处理器以接收消息
-            document.getElementById('current_price').innerHTML = 'EUR ' + JSON.parse(message.body).price;
-            document.getElementById('feed').value += 'New offer: EUR ' + JSON.parse(message.body).price + '\n';
+            document.getElementById('current_price').innerHTML = 'EUR ' + message.body.price;
+            document.getElementById('feed').value += 'New offer: EUR ' + message.body.price + '\n';
         });
     }
     
@@ -60,5 +60,5 @@ function bid() {
 };
 
 function sendMsg() {
-   eventBus.send('auction.' + auction_id,JSON.stringify({price: '111'}),{userid: "qazwsx"});
+   eventBus.send('auction.' + auction_id,{price: '111'},{userid: "qazwsx"});
 }
