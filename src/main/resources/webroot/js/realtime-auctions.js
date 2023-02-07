@@ -1,4 +1,5 @@
 var auction_id = 1;
+var eventBus;
 
 function init() {
     loadCurrentPrice();
@@ -25,7 +26,7 @@ function loadCurrentPrice() {
 /* 注册EventBus的处理器来更新服务器推送来的价格 */
 function registerHandlerForUpdateCurrentPriceAndFeed() {
     //var eventBus = new EventBus('http://localhost:9090/eventbus');
-    var eventBus = new EventBus('/eventbus');
+    eventBus = new EventBus('/eventbus');
     eventBus.enableReconnect(true);
     eventBus.onopen = function () {
         eventBus.registerHandler('auction.' + auction_id, function (error, message) {  //设置一个处理器以接收消息
@@ -37,6 +38,9 @@ function registerHandlerForUpdateCurrentPriceAndFeed() {
     eventBus.onclose = function(event) {
      console.log('close event: %o', event);
     };
+    
+    eventBus2 = new EventBus('/eventbus');
+    eventBus2.enableReconnect(true);
 };
 
 /* 竞拍出价 */
@@ -57,3 +61,7 @@ function bid() {
     xmlhttp.setRequestHeader("Content-Type", "application/json");
     xmlhttp.send(JSON.stringify({price: newPrice}));
 };
+
+function sendMsg() {
+   eventBus.send('auction.' + auction_id,JSON.stringify({price: '111'}),{userid: "qazwsx"});
+}
