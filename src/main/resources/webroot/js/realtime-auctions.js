@@ -60,5 +60,13 @@ function bid() {
 };
 
 function sendMsg() {
-   eventBus.send('auction.' + auction_id,{price: '111'},{userid: "qazwsx"});
+   //eventBus.send('auction.' + auction_id,{price: ''+randomrange(1,30)},{userid: "qazwsx"});
+   var msg = {price: ''+randomrange(1,30)}
+   eventBus.publish('auction.' + auction_id,msg,{userid: "qazwsx"});
+   document.getElementById('receive').value += 'publish: ' + JSON.stringify(msg) + '\n';
 }
+
+function randomrange(min, max) { // min最小值，max最大值
+    return Math.floor(Math.random() * (max - min)) + min;
+}
+
