@@ -18,8 +18,11 @@ if(profileName==null) {
                                    +"For example: gradlew clean build -x test -Dprofile=dev")
 }
 processResources {
+    exclude '**/*.map'
+    
     include 'META-INF/services/**'
     include '**/webroot/**'
+
     include '**/public/**'
     include '**/static/**'
     include '**/templates/**'
