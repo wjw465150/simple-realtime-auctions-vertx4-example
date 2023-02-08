@@ -26,10 +26,10 @@ function loadCurrentPrice() {
 /* 注册EventBus的处理器来更新服务器推送来的价格 */
 function registerHandlerForUpdateCurrentPriceAndFeed() {
     //var eventBus = new EventBus('http://localhost:9090/eventbus');
-    eventBus = new EventBus('/eventbus');
+    eventBus = new EventBus('/eventbus',{server: 'ProcessOn', sessionId: 10, id: randomrange(1,10) });
     eventBus.enableReconnect(true);
     eventBus.onopen = function () {
-        eventBus.registerHandler('auction.' + auction_id, function (error, message) {  //设置一个处理器以接收消息
+        eventBus.registerHandler('auction.' + auction_id, {key1: 'value1'},function (error, message) {  //设置一个处理器以接收消息
             document.getElementById('current_price').innerHTML = 'EUR ' + message.body.price;
             document.getElementById('feed').value += 'New offer: EUR ' + message.body.price + '\n';
         });

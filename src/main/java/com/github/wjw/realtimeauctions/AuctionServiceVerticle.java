@@ -124,7 +124,7 @@ public class AuctionServiceVerticle extends AbstractVerticle {
       } else if (event.type() == BridgeEventType.SOCKET_CLOSED) {
         logger.info("A WebSocket was closed,uri: " + event.socket().uri());
       } else if (event.type() == BridgeEventType.REGISTERED) {
-        logger.info("A WebSocket was registered,uri: " + event.getRawMessage().encode());
+        logger.info("A WebSocket was registered,rawMessage: " + event.getRawMessage().encode());
       }
 
       event.complete(true); //使用“true”完成`Promise`以启用进一步处理
