@@ -5,6 +5,8 @@
  */
 package com.github.wjw.realtimeauctions;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Properties;
 
 import org.slf4j.Logger;
@@ -15,6 +17,7 @@ import io.vertx.config.ConfigRetrieverOptions;
 import io.vertx.config.ConfigStoreOptions;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Promise;
+import io.vertx.core.eventbus.MessageConsumer;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.bridge.BridgeEventType;
 import io.vertx.ext.bridge.PermittedOptions;
@@ -31,6 +34,8 @@ public class AuctionServiceVerticle extends AbstractVerticle {
   public final static Integer PORT = 9090;
 
   private Logger logger;
+
+  private Map<String, MessageConsumer<JsonObject>> consumers = new HashMap<>();
 
   public AuctionServiceVerticle() {
     this.logger = LoggerFactory.getLogger(this.getClass());
@@ -120,11 +125,37 @@ public class AuctionServiceVerticle extends AbstractVerticle {
 
     return sockJSHandler.bridge(bridgeOptions, event -> {
       if (event.type() == BridgeEventType.SOCKET_CREATED) {
-        logger.info("A WebSocket was created,uri: " + event.socket().uri());
+        logger.info("A WebSocket was created,uri: '" + event.socket().uri() + "'");
+
+        String webSocketKey = event.socket().uri().replaceAll("/", ".");
+
+        //添加event.socket().uri()的consumer
+        MessageConsumer<JsonObject> consumer = vertx.eventBus().consumer(webSocketKey, message -> {
+          System.out.println("I have received a message: " + message.body());
+        });
+        consumer.completionHandler(res -> {
+          if (res.succeeded()) {
+            logger.info("The consumer '" + webSocketKey + "' handler registration has reached all nodes!");
+            consumers.put(webSocketKey, consumer);
+            vertx.eventBus().send(webSocketKey, "Hello: '" + webSocketKey + "'");
+          } else {
+            logger.error("The consumer '" + webSocketKey + "' Registration failed! cause: " + res.cause());
+          }
+        });
       } else if (event.type() == BridgeEventType.SOCKET_CLOSED) {
-        logger.info("A WebSocket was closed,uri: " + event.socket().uri());
+        logger.info("A WebSocket was closed,uri: '" + event.socket().uri() + "'");
+
+        //移除event.socket().uri()的consumer
+        String webSocketKey = event.socket().uri().replaceAll("/", ".");
+
+        MessageConsumer<JsonObject> consumer = consumers.remove(webSocketKey);
+        if (consumer != null) {
+          consumer.unregister().onComplete(it -> {
+            logger.info("The consumer '" + consumer.address() + "' unregister has reached all nodes:");
+          });
+        }
       } else if (event.type() == BridgeEventType.REGISTERED) {
-        logger.info("A WebSocket was registered,rawMessage: " + event.getRawMessage().encode());
+        logger.info("A WebSocket was registered,uri: '" + event.socket().uri() + "', rawMessage: " + event.getRawMessage().encode());
       }
 
       event.complete(true); //使用“true”完成`Promise`以启用进一步处理
