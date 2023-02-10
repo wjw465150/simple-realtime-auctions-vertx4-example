@@ -1,5 +1,6 @@
 var auction_id = 1;
 var eventBus;
+var myid;
 
 function init() {
     loadCurrentPrice();
@@ -26,12 +27,21 @@ function loadCurrentPrice() {
 /* 注册EventBus的处理器来更新服务器推送来的价格 */
 function registerHandlerForUpdateCurrentPriceAndFeed() {
     //var eventBus = new EventBus('http://localhost:9090/eventbus');
-    eventBus = new EventBus('/eventbus',{server: 'ProcessOn', sessionId: 10, id: randomrange(1,10) });
+    eventBus = new EventBus('/eventbus',{server: 'ProcessOn', sessionId: 10});
     eventBus.enableReconnect(true);
+    
     eventBus.onopen = function () {
-        eventBus.registerHandler('auction.' + auction_id, {key1: 'value1'},function (error, message) {  //设置一个处理器以接收消息
+	    myid = '111111';  //+randomrange(8000,9000);
+	    
+        eventBus.registerHandler('auction.' + auction_id, {myid: myid},function (error, message) {  //设置一个处理器以接收消息
             document.getElementById('current_price').innerHTML = 'EUR ' + message.body.price;
             document.getElementById('feed').value += 'New offer: EUR ' + message.body.price + '\n';
+        });
+
+        //把 myid 发送给服务器
+        eventBus.send("user."+myid,"发送我的ID",function (error2, message2) { 
+          console.log(message2);
+          document.getElementById('receive').value += JSON.stringify(message2) + '\n';
         });
     }
     

@@ -35,7 +35,7 @@ public class AuctionServiceVerticle extends AbstractVerticle {
 
   private Logger logger;
 
-  private Map<String, MessageConsumer<JsonObject>> consumers = new HashMap<>();
+  private Map<String, MessageConsumer<JsonObject>> wsUsers = new HashMap<>();
 
   public AuctionServiceVerticle() {
     this.logger = LoggerFactory.getLogger(this.getClass());
@@ -90,7 +90,7 @@ public class AuctionServiceVerticle extends AbstractVerticle {
         router.route().handler(staticHandler()); //Vert.x-Web 带有一个开箱即用的处理程序，用于提供静态 Web 资源
         router.route().handler(ResponseTimeHandler.create()); //此处理程序设置标头`x-response-time`响应标头，其中包含从收到请求到写入响应标头的时间，以毫秒为单位
         if (profile.equalsIgnoreCase("prod") == false) { //生产状态不记录web日志
-          router.route().handler(LoggerHandler.create()); //Vert.x-Web 包含一个处理程序`LoggerHandler`，您可以使用它来记录 HTTP 请求。 您应该在任何可能使 `RoutingContext` 失败的处理程序之前安装此处理程序
+          //router.route().handler(LoggerHandler.create()); //Vert.x-Web 包含一个处理程序`LoggerHandler`，您可以使用它来记录 HTTP 请求。 您应该在任何可能使 `RoutingContext` 失败的处理程序之前安装此处理程序
         }
       }
 
@@ -121,41 +121,48 @@ public class AuctionServiceVerticle extends AbstractVerticle {
     bridgeOptions.addOutboundPermitted(new PermittedOptions().setAddressRegex("auction\\.[0-9]+"));
     bridgeOptions.addInboundPermitted(new PermittedOptions().setAddressRegex("auction\\.[0-9]+"));
 
+    bridgeOptions.addOutboundPermitted(new PermittedOptions().setAddressRegex("user\\..+"));
+    bridgeOptions.addInboundPermitted(new PermittedOptions().setAddressRegex("user\\..+"));
+
     SockJSHandler sockJSHandler = SockJSHandler.create(vertx);
 
     return sockJSHandler.bridge(bridgeOptions, event -> {
       if (event.type() == BridgeEventType.SOCKET_CREATED) {
         logger.info("A WebSocket was created,uri: '" + event.socket().uri() + "'");
-
-        String webSocketKey = event.socket().uri().replaceAll("/", ".");
-
-        //添加event.socket().uri()的consumer
-        MessageConsumer<JsonObject> consumer = vertx.eventBus().consumer(webSocketKey, message -> {
-          System.out.println("I have received a message: " + message.body());
-        });
-        consumer.completionHandler(res -> {
-          if (res.succeeded()) {
-            logger.info("The consumer '" + webSocketKey + "' handler registration has reached all nodes!");
-            consumers.put(webSocketKey, consumer);
-            vertx.eventBus().send(webSocketKey, "Hello: '" + webSocketKey + "'");
-          } else {
-            logger.error("The consumer '" + webSocketKey + "' Registration failed! cause: " + res.cause());
-          }
-        });
       } else if (event.type() == BridgeEventType.SOCKET_CLOSED) {
         logger.info("A WebSocket was closed,uri: '" + event.socket().uri() + "'");
-
+        
         //移除event.socket().uri()的consumer
         String webSocketKey = event.socket().uri().replaceAll("/", ".");
 
-        MessageConsumer<JsonObject> consumer = consumers.remove(webSocketKey);
-        if (consumer != null) {
-          consumer.unregister().onComplete(it -> {
-            logger.info("The consumer '" + consumer.address() + "' unregister has reached all nodes:");
+        MessageConsumer<JsonObject> wsUserIdconsumer = wsUsers.remove(webSocketKey);
+        if (wsUserIdconsumer != null) {
+          wsUserIdconsumer.unregister().onComplete(it -> {
+            logger.info("The consumer '" + wsUserIdconsumer.address() + "' unregister has reached all nodes:");
           });
         }
+        
       } else if (event.type() == BridgeEventType.REGISTERED) {
         logger.info("A WebSocket was registered,uri: '" + event.socket().uri() + "', rawMessage: " + event.getRawMessage().encode());
+
+        String myid = event.getRawMessage().getJsonObject("headers").getString("myid");  // 从headers获取到myid
+        if (myid != null) {
+          String webSocketKey = event.socket().uri().replaceAll("/", ".");  // TODO: 这里如果把传来的myid作为key,当一个用户同时打开多个TAB页时会覆盖前面打开的!
+
+          MessageConsumer<JsonObject> wsUserIdconsumer = vertx.eventBus().<JsonObject> consumer("user." + myid, message -> {
+            String rMsg = "收到了: address:" + message.address() + " body: " + message.body();
+            System.out.println(rMsg);
+            message.reply(rMsg);
+          });
+          wsUserIdconsumer.completionHandler(res -> {  // 当consumer()调用成功后,把MessageConsumer放到wsUsers这个Map里
+            if (res.succeeded()) {
+              wsUsers.put(webSocketKey, wsUserIdconsumer);
+            } else {
+              logger.error("The wsUserIdconsumer '" + webSocketKey + "' Registration failed! cause: " + res.cause());
+            }
+          });
+
+        }
       }
 
       event.complete(true); //使用“true”完成`Promise`以启用进一步处理
