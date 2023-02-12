@@ -24,16 +24,18 @@ import io.vertx.ext.bridge.PermittedOptions;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.handler.BodyHandler;
 import io.vertx.ext.web.handler.ErrorHandler;
-import io.vertx.ext.web.handler.LoggerHandler;
 import io.vertx.ext.web.handler.ResponseTimeHandler;
 import io.vertx.ext.web.handler.StaticHandler;
 import io.vertx.ext.web.handler.sockjs.SockJSBridgeOptions;
 import io.vertx.ext.web.handler.sockjs.SockJSHandler;
+import io.vertx.ext.web.handler.sockjs.SockJSHandlerOptions;
 
 public class AuctionServiceVerticle extends AbstractVerticle {
   public final static Integer PORT = 9090;
 
   private Logger logger;
+
+  private String profile;
 
   private Map<String, MessageConsumer<JsonObject>> wsUsers = new HashMap<>();
 
@@ -44,7 +46,6 @@ public class AuctionServiceVerticle extends AbstractVerticle {
   @Override
   public void start(Promise<Void> startPromise) throws Exception {
     String vertx_config_path;
-    String profile;
     { //->校验是否指定了`profile`参数,和相应的配置文件是否存在!
       Properties sysProperties = System.getProperties();
       profile = sysProperties.getProperty("profile");
@@ -124,7 +125,13 @@ public class AuctionServiceVerticle extends AbstractVerticle {
     bridgeOptions.addOutboundPermitted(new PermittedOptions().setAddressRegex("user\\..+"));
     bridgeOptions.addInboundPermitted(new PermittedOptions().setAddressRegex("user\\..+"));
 
-    SockJSHandler sockJSHandler = SockJSHandler.create(vertx);
+    SockJSHandlerOptions sockJSHandlerOptions = new SockJSHandlerOptions();
+    if(profile.equalsIgnoreCase("dev")) {  //如果是开发环境把session超时设置长一些,防止前端在断点调试时候被超时关闭.
+      sockJSHandlerOptions.setSessionTimeout(600L * 1000);
+    }
+    sockJSHandlerOptions.setHeartbeatInterval(20L * 1000);
+    sockJSHandlerOptions.setRegisterWriteHandler(false); //@wjw_note: 用了`eventbus bridge`方式就不能再使用`writeHandler`
+    SockJSHandler sockJSHandler = SockJSHandler.create(vertx,sockJSHandlerOptions);
 
     return sockJSHandler.bridge(bridgeOptions, event -> {
       if (event.type() == BridgeEventType.SOCKET_CREATED) {
