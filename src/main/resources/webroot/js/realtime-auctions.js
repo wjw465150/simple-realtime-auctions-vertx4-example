@@ -31,7 +31,7 @@ function registerHandlerForUpdateCurrentPriceAndFeed() {
     eventBus.enableReconnect(true);
     
     eventBus.onopen = function () {
-	    myid = '111111';  //+randomrange(8000,9000);
+	    myid = ''+randomrange(8000,9000);  //表示当前的客户端ID,要唯一
 	    
         eventBus.registerHandler('auction.' + auction_id, {myid: myid},function (error, message) {  //设置一个处理器以接收消息
             document.getElementById('current_price').innerHTML = 'EUR ' + message.body.price;
