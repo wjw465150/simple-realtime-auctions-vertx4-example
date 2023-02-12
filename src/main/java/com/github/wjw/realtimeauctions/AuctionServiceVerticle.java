@@ -131,7 +131,7 @@ public class AuctionServiceVerticle extends AbstractVerticle {
         logger.info("A WebSocket was created,uri: '" + event.socket().uri() + "'");
       } else if (event.type() == BridgeEventType.SOCKET_CLOSED) {
         logger.info("A WebSocket was closed,uri: '" + event.socket().uri() + "'");
-        
+
         //移除event.socket().uri()的consumer
         String webSocketKey = event.socket().uri().replaceAll("/", ".");
 
@@ -141,27 +141,29 @@ public class AuctionServiceVerticle extends AbstractVerticle {
             logger.info("The consumer '" + wsUserIdconsumer.address() + "' unregister has reached all nodes:");
           });
         }
-        
+
       } else if (event.type() == BridgeEventType.REGISTERED) {
         logger.info("A WebSocket was registered,uri: '" + event.socket().uri() + "', rawMessage: " + event.getRawMessage().encode());
 
-        String myid = event.getRawMessage().getJsonObject("headers").getString("myid");  // 从headers获取到myid
-        if (myid != null) {
-          String webSocketKey = event.socket().uri().replaceAll("/", ".");  // TODO: 这里如果把传来的myid作为key,当一个用户同时打开多个TAB页时会覆盖前面打开的!
+        if (event.getRawMessage().getJsonObject("headers") != null) {
+          String myid = event.getRawMessage().getJsonObject("headers").getString("myid"); // 从headers获取到myid
+          if (myid != null) {
+            String webSocketKey = event.socket().uri().replaceAll("/", "."); // TODO: 这里如果把传来的myid作为key,当一个用户同时打开多个TAB页时会覆盖前面打开的!
 
-          MessageConsumer<JsonObject> wsUserIdconsumer = vertx.eventBus().<JsonObject> consumer("user." + myid, message -> {
-            String rMsg = "收到了: address:" + message.address() + " body: " + message.body();
-            System.out.println(rMsg);
-            message.reply(rMsg);
-          });
-          wsUserIdconsumer.completionHandler(res -> {  // 当consumer()调用成功后,把MessageConsumer放到wsUsers这个Map里
-            if (res.succeeded()) {
-              wsUsers.put(webSocketKey, wsUserIdconsumer);
-            } else {
-              logger.error("The wsUserIdconsumer '" + webSocketKey + "' Registration failed! cause: " + res.cause());
-            }
-          });
+            MessageConsumer<JsonObject> wsUserIdconsumer = vertx.eventBus().<JsonObject> consumer("user." + myid, message -> {
+              String rMsg = "收到了: address:" + message.address() + " body: " + message.body();
+              logger.info(rMsg);
+              message.reply(rMsg);
+            });
+            wsUserIdconsumer.completionHandler(res -> { // 当consumer()调用成功后,把MessageConsumer放到wsUsers这个Map里
+              if (res.succeeded()) {
+                wsUsers.put(webSocketKey, wsUserIdconsumer);
+              } else {
+                logger.error("The wsUserIdconsumer '" + webSocketKey + "' Registration failed! cause: " + res.cause());
+              }
+            });
 
+          }
         }
       }
 
