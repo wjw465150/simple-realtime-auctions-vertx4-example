@@ -14,6 +14,12 @@
 <h3>Auction 1</h3>
 <div id="error_message"></div>
 <form>
+    Current user:
+    <span id="current_user" style="color: red;"></span>
+    <p>
+    Current page:
+    <span id="current_page" style="color: teal;"></span>
+    <p>
     Current price:
     <span id="current_price"></span>
     <div>
@@ -27,11 +33,19 @@
     </div>
     <p>
     <div>
-        <input type="button" onclick="sendMsg();" value="bidUseEventBus">
+        <input type="button" onclick="sendPubMsg();" value="sendPubMsg">
     </div>
     <div>
-        Received:
+        Client to Server:
         <textarea id="receive" rows="10" cols="50" ></textarea>
+    </div>
+    <p>
+    <div>
+        <input type="button" onclick="sendPointMsg();" value="sendPointMsg">
+    </div>
+    <div>
+        P-2-P:
+        <textarea id="p2pReceive" rows="10" cols="50" ></textarea>
     </div>
 </form>
 
