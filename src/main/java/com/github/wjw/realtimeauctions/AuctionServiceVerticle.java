@@ -46,7 +46,9 @@ public class AuctionServiceVerticle extends AbstractVerticle {
   private Map<String, String> socketUriAndUserIdMap  = new HashMap<>();
   private static final String USER_AND_PAGE_MAP_NAME = "UserAndPage";
   //key是userId, value是一个JSON对象(里面key是socketUri,value是pageId)
-  private AsyncMap<String, JsonObject> userAndSocketUri_PageMap;
+  private AsyncMap<String, JsonObject> asyncUserIdAndSocketUri_PageMap;
+
+  private Map<String, MessageConsumer<JsonObject>> pageIdAndConsumerUserMsgMap = new HashMap<>();
 
   public AuctionServiceVerticle() {
     this.logger = LoggerFactory.getLogger(this.getClass());
@@ -94,7 +96,7 @@ public class AuctionServiceVerticle extends AbstractVerticle {
       logger.info("!!!!!!=================Vertx App profile:" + profile + "=================!!!!!!");
 
       vertx.sharedData().<String, JsonObject> getAsyncMap(USER_AND_PAGE_MAP_NAME).onSuccess(itMap -> {
-        userAndSocketUri_PageMap = itMap;
+        asyncUserIdAndSocketUri_PageMap = itMap;
 
         Router router = Router.router(vertx);
 
@@ -154,64 +156,84 @@ public class AuctionServiceVerticle extends AbstractVerticle {
       if (event.type() == BridgeEventType.SOCKET_CREATED) {
         logger.info(MessageFormat.format("A WebSocket was created,uri: `{0}`", event.socket().uri()));
       } else if (event.type() == BridgeEventType.SOCKET_CLOSED) {
-        logger.info(MessageFormat.format("A WebSocket was closed,uri: `{0}`", event.socket().uri()));
-
-        String socketUri      = event.socket().uri().replaceAll("/", ".");
-        String pageId         = socketUriAndPageIdMap.remove(socketUri);
-        String storeSocketUri = pageIdAndSocketUriMap.remove(pageId);
-        if (storeSocketUri.equals(socketUri) == false) {
-          logger.warn(MessageFormat.format("没有找到此 pageId: `{0}` 下的 socketUri: `{1}`", pageId, storeSocketUri));
-        }
-
-        String userId = socketUriAndUserIdMap.remove(socketUri);
-        if (userId == null) {
-          logger.warn(MessageFormat.format("没找到此socketUri: `{0}` 下的 userId: `{1}`", socketUri, userId));
-        } else {
-          userAndSocketUri_PageMap.get(userId).onComplete(it -> {
-            JsonObject jsSocketAndPageId = it.result();
-            String     storePageId       = (String) jsSocketAndPageId.remove(socketUri);
-            if (storePageId.equals(pageId) == false) {
-              logger.warn(MessageFormat.format("没找到此socketUri: `{0}` 下的 pageId: `{1}`", socketUri, storePageId));
-            } else {
-              logger.info(MessageFormat.format("移除 绑定到此socketUri: `{0}` 下的 pageId: `{1}`", socketUri, storePageId));
-            }
-          }).andThen(it -> {
-            JsonObject jsSocketAndPageId = it.result();
-            if(jsSocketAndPageId.size()==0) {
-              userAndSocketUri_PageMap.remove(userId);
-            }
-          });
-        }
+        onSocketClosed(event);
       } else if (event.type() == BridgeEventType.REGISTERED) {
-        logger.info(MessageFormat.format("A WebSocket was registered,uri: `{0}`, rawMessage: `{1}`", event.socket().uri(), event.getRawMessage().encode()));
-
-        if (event.getRawMessage().getString("address").startsWith("auction.") && event.getRawMessage().getJsonObject("headers") != null) {
-          String userId = event.getRawMessage().getJsonObject("headers").getString("userId"); // 从headers获取到userId
-          String pageId = event.getRawMessage().getJsonObject("headers").getString("pageId"); // 从headers获取到pageId
-
-          String socketUri = event.socket().uri().replaceAll("/", "."); // TODO: 这里如果把传来的userId作为key,当一个用户同时打开多个Page时会覆盖前面打开的!
-          if (userId != null && pageId != null) {
-            //服务器与客户端的User之间的point-to_point通信,有可能用户打开多个page,通信落在不同的服务器上,所有不能是local的
-            MessageConsumer<JsonObject> wsUserIdconsumer = vertx.eventBus().consumer("user." + userId, this::userMsgHandler);
-
-            socketUriAndPageIdMap.put(socketUri, pageId);
-            pageIdAndSocketUriMap.put(pageId, socketUri);
-            socketUriAndUserIdMap.put(socketUri, userId);
-
-            //再把userId和(socketUri, pageId)放到Map里
-            userAndSocketUri_PageMap.get(userId).onComplete(asr -> {
-              JsonObject jsObj = asr.result();
-              if (jsObj == null) {
-                jsObj = new JsonObject();
-              }
-              jsObj.put(socketUri, pageId);
-              userAndSocketUri_PageMap.put(userId, jsObj);
-            });
-          }
-        }
+        onSocketRegistered(event);
       }
 
       event.complete(true); //使用“true”完成`Promise`以启用进一步处理
+    });
+  }
+
+  private void onSocketRegistered(BridgeEvent event) {
+    logger.info(MessageFormat.format("A WebSocket was registered,uri: `{0}`, rawMessage: `{1}`", event.socket().uri(), event.getRawMessage().encode()));
+    if (event.getRawMessage().getString("address").startsWith("auction.") == false || event.getRawMessage().getJsonObject("headers") == null) {
+      return;
+    }
+
+    String userId = event.getRawMessage().getJsonObject("headers").getString("userId"); // 从headers获取到userId
+    String pageId = event.getRawMessage().getJsonObject("headers").getString("pageId"); // 从headers获取到pageId
+
+    String socketUri = event.socket().uri().replaceAll("/", "."); // TODO: 这里如果把传来的userId作为key,当一个用户同时打开多个Page时会覆盖前面打开的!
+    if (userId == null || pageId == null) {
+      return;
+    }
+
+    //服务器与客户端的User之间的point-to_point通信,有可能用户打开多个page,通信落在不同的服务器上,所有不能是local的
+    MessageConsumer<JsonObject> userIdconsumer = vertx.eventBus().consumer("user." + userId, this::userMsgHandler);
+    pageIdAndConsumerUserMsgMap.put(pageId, userIdconsumer);
+
+    socketUriAndPageIdMap.put(socketUri, pageId);
+    pageIdAndSocketUriMap.put(pageId, socketUri);
+    socketUriAndUserIdMap.put(socketUri, userId);
+
+    //再把userId和(socketUri, pageId)放到Map里
+    asyncUserIdAndSocketUri_PageMap.get(userId).onComplete(asr -> {
+      JsonObject jsObj = asr.result();
+      if (jsObj == null) {
+        jsObj = new JsonObject();
+      }
+      jsObj.put(socketUri, pageId);
+      asyncUserIdAndSocketUri_PageMap.put(userId, jsObj);
+    });
+  }
+
+  private void onSocketClosed(BridgeEvent event) {
+    logger.info(MessageFormat.format("A WebSocket was closed,uri: `{0}`", event.socket().uri()));
+
+    String socketUri      = event.socket().uri().replaceAll("/", ".");
+    String pageId         = socketUriAndPageIdMap.remove(socketUri);
+    String storeSocketUri = pageIdAndSocketUriMap.remove(pageId);
+    if (storeSocketUri.equals(socketUri) == false) {
+      logger.warn(MessageFormat.format("没有找到此 pageId: `{0}` 下的 socketUri: `{1}`", pageId, storeSocketUri));
+    }
+
+    String userId = socketUriAndUserIdMap.remove(socketUri);
+    if (userId == null) {
+      logger.warn(MessageFormat.format("没找到此socketUri: `{0}` 下的 userId: `{1}`", socketUri, userId));
+
+      return;
+    }
+
+    asyncUserIdAndSocketUri_PageMap.get(userId).onComplete(it -> {
+      JsonObject jsObj       = it.result();
+      String     storePageId = (String) jsObj.remove(socketUri);
+      if (storePageId.equals(pageId) == false) {
+        logger.warn(MessageFormat.format("没找到此socketUri: `{0}` 下的 pageId: `{1}`", socketUri, storePageId));
+      } else {
+        asyncUserIdAndSocketUri_PageMap.put(userId, jsObj);
+        logger.info(MessageFormat.format("移除 绑定到此socketUri: `{0}` 下的 pageId: `{1}`", socketUri, storePageId));
+        
+        MessageConsumer<JsonObject> consumerUserMsg = pageIdAndConsumerUserMsgMap.remove(pageId);
+        consumerUserMsg.unregister();
+        logger.info(MessageFormat.format("移除 绑定到此pageId: `{0}` 下的 consumer: `{1}`", pageId, consumerUserMsg));
+      }
+    }).andThen(it -> {
+      JsonObject jsObj = it.result();
+      if (jsObj.size() == 0) {
+        asyncUserIdAndSocketUri_PageMap.remove(userId);
+        logger.info(MessageFormat.format("移除 AsyncMap: `{0}` 下的 `{1}`", USER_AND_PAGE_MAP_NAME, userId));
+      }
     });
   }
 
@@ -228,7 +250,7 @@ public class AuctionServiceVerticle extends AbstractVerticle {
     logger.info(rMsg);
 
     //查询出这个userId下的所关联的所有的pageId,然后转发过去.
-    userAndSocketUri_PageMap.get(userId).onComplete(it -> {
+    asyncUserIdAndSocketUri_PageMap.get(userId).onComplete(it -> {
       JsonObject jsSocketAndPageId = it.result();
       jsSocketAndPageId.fieldNames().forEach(key -> {
         //if (key.equals(socketUri) == false) { //过滤掉发送方的
