@@ -37,6 +37,8 @@ import io.vertx.ext.web.handler.sockjs.SockJSHandlerOptions;
 
 public class AuctionServiceVerticle extends AbstractVerticle {
   public final static Integer PORT = 9090;
+  private static final String SEC_WEBSOCKET_KEY = "sec-websocket-key";
+
   private Logger              logger;
   private String              profile;
 
@@ -154,7 +156,9 @@ public class AuctionServiceVerticle extends AbstractVerticle {
 
     return sockJSHandler.bridge(bridgeOptions, event -> {
       if (event.type() == BridgeEventType.SOCKET_CREATED) {
-        String socketUri = (event.socket().uri() + "-" + event.socket().headers().get("sec-websocket-key")).replaceAll("/", ".");
+        //TODO: 对`event.socket().headers().get()`获取,键是不区分大小写的!
+        String socketUri = (event.socket().uri() + "-" + event.socket().headers().get(SEC_WEBSOCKET_KEY)).replaceAll("/", ".");
+        
         logger.info(MessageFormat.format("A WebSocket was created,socketId: `{0}`", socketUri));
       } else if (event.type() == BridgeEventType.SOCKET_CLOSED) {
         onSocketClosed(event);
@@ -167,7 +171,7 @@ public class AuctionServiceVerticle extends AbstractVerticle {
   }
 
   private void onSocketRegistered(BridgeEvent event) {
-    String socketUri = (event.socket().uri() + "-" + event.socket().headers().get("sec-websocket-key")).replaceAll("/", ".");
+    String socketUri = (event.socket().uri() + "-" + event.socket().headers().get(SEC_WEBSOCKET_KEY)).replaceAll("/", ".");
     logger.info(MessageFormat.format("A WebSocket was registered,uri: `{0}`, rawMessage: `{1}`", socketUri, event.getRawMessage().encode()));
     
     if (event.getRawMessage().getString("address").startsWith("auction.") == false || event.getRawMessage().getJsonObject("headers") == null) {
@@ -201,7 +205,7 @@ public class AuctionServiceVerticle extends AbstractVerticle {
   }
 
   private void onSocketClosed(BridgeEvent event) {
-    String socketUri = (event.socket().uri()+"-"+event.socket().headers().get("sec-websocket-key")).replaceAll("/", ".");
+    String socketUri = (event.socket().uri()+"-"+event.socket().headers().get(SEC_WEBSOCKET_KEY)).replaceAll("/", ".");
     logger.info(MessageFormat.format("A WebSocket was closed,uri: `{0}`", socketUri));
 
     String pageId         = socketUriAndPageIdMap.remove(socketUri);
@@ -309,6 +313,7 @@ public class AuctionServiceVerticle extends AbstractVerticle {
         .setCachingEnabled(false);
   }
 
+  @SuppressWarnings("rawtypes")
   private String dumpMessage(Message message) {
     return MessageFormat.format("address:`{0}` replyAddress:`{1}` headers:`{2}` isSend:`{3}` body:`{4}`",
         message.address(),
