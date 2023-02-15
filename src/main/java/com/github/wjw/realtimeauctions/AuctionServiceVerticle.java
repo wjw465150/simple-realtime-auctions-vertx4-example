@@ -154,7 +154,8 @@ public class AuctionServiceVerticle extends AbstractVerticle {
 
     return sockJSHandler.bridge(bridgeOptions, event -> {
       if (event.type() == BridgeEventType.SOCKET_CREATED) {
-        logger.info(MessageFormat.format("A WebSocket was created,uri: `{0}`", event.socket().uri()));
+        String socketUri = (event.socket().uri() + "-" + event.socket().headers().get("sec-websocket-key")).replaceAll("/", ".");
+        logger.info(MessageFormat.format("A WebSocket was created,socketId: `{0}`", socketUri));
       } else if (event.type() == BridgeEventType.SOCKET_CLOSED) {
         onSocketClosed(event);
       } else if (event.type() == BridgeEventType.REGISTERED) {
@@ -166,7 +167,9 @@ public class AuctionServiceVerticle extends AbstractVerticle {
   }
 
   private void onSocketRegistered(BridgeEvent event) {
-    logger.info(MessageFormat.format("A WebSocket was registered,uri: `{0}`, rawMessage: `{1}`", event.socket().uri(), event.getRawMessage().encode()));
+    String socketUri = (event.socket().uri() + "-" + event.socket().headers().get("sec-websocket-key")).replaceAll("/", ".");
+    logger.info(MessageFormat.format("A WebSocket was registered,uri: `{0}`, rawMessage: `{1}`", socketUri, event.getRawMessage().encode()));
+    
     if (event.getRawMessage().getString("address").startsWith("auction.") == false || event.getRawMessage().getJsonObject("headers") == null) {
       return;
     }
@@ -174,7 +177,6 @@ public class AuctionServiceVerticle extends AbstractVerticle {
     String userId = event.getRawMessage().getJsonObject("headers").getString("userId"); // 从headers获取到userId
     String pageId = event.getRawMessage().getJsonObject("headers").getString("pageId"); // 从headers获取到pageId
 
-    String socketUri = event.socket().uri().replaceAll("/", "."); // TODO: 这里如果把传来的userId作为key,当一个用户同时打开多个Page时会覆盖前面打开的!
     if (userId == null || pageId == null) {
       return;
     }
@@ -199,18 +201,18 @@ public class AuctionServiceVerticle extends AbstractVerticle {
   }
 
   private void onSocketClosed(BridgeEvent event) {
-    logger.info(MessageFormat.format("A WebSocket was closed,uri: `{0}`", event.socket().uri()));
+    String socketUri = (event.socket().uri()+"-"+event.socket().headers().get("sec-websocket-key")).replaceAll("/", ".");
+    logger.info(MessageFormat.format("A WebSocket was closed,uri: `{0}`", socketUri));
 
-    String socketUri      = event.socket().uri().replaceAll("/", ".");
     String pageId         = socketUriAndPageIdMap.remove(socketUri);
     String storeSocketUri = pageIdAndSocketUriMap.remove(pageId);
-    if (storeSocketUri.equals(socketUri) == false) {
+    if (socketUri.equals(storeSocketUri) == false) {
       logger.warn(MessageFormat.format("没有找到此 pageId: `{0}` 下的 socketUri: `{1}`", pageId, storeSocketUri));
     }
 
     String userId = socketUriAndUserIdMap.remove(socketUri);
     if (userId == null) {
-      logger.warn(MessageFormat.format("没找到此socketUri: `{0}` 下的 userId: `{1}`", socketUri, userId));
+      logger.warn(MessageFormat.format("没找到此 socketUri: `{0}` 下的 userId: `{1}`", socketUri, userId));
 
       return;
     }
@@ -218,12 +220,12 @@ public class AuctionServiceVerticle extends AbstractVerticle {
     asyncUserIdAndSocketUri_PageMap.get(userId).onComplete(it -> {
       JsonObject jsObj       = it.result();
       String     storePageId = (String) jsObj.remove(socketUri);
-      if (storePageId.equals(pageId) == false) {
-        logger.warn(MessageFormat.format("没找到此socketUri: `{0}` 下的 pageId: `{1}`", socketUri, storePageId));
+      if (pageId.equals(storePageId) == false) {
+        logger.warn(MessageFormat.format("没找到此 socketUri: `{0}` 下的 pageId: `{1}`", socketUri, storePageId));
       } else {
         asyncUserIdAndSocketUri_PageMap.put(userId, jsObj);
         logger.info(MessageFormat.format("移除 绑定到此socketUri: `{0}` 下的 pageId: `{1}`", socketUri, storePageId));
-        
+
         MessageConsumer<JsonObject> consumerUserMsg = pageIdAndConsumerUserMsgMap.remove(pageId);
         consumerUserMsg.unregister();
         logger.info(MessageFormat.format("移除 绑定到此pageId: `{0}` 下的 consumer: `{1}`", pageId, consumerUserMsg));
