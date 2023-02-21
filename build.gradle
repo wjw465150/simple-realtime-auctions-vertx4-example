@@ -5,7 +5,7 @@ plugins {
   id 'java'
   id 'application' 
  
-   //gradle的插件，shadow这个插件可以构建的时候把引用的jar包合进去
+  //gradle的插件，shadow这个插件可以构建的时候把引用的jar包合进去
   //加上此插件后会生成一个shadowJar的task
   id "com.github.johnrengelman.shadow" version "7.0.0"
 }
