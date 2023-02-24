@@ -138,8 +138,8 @@ public class AuctionServiceVerticle extends AbstractVerticle {
   private Router eventBusHandler() {
     /* 对 服务端&客户端 保持连接的的注解
      * 服务端:
-     *   bridgeOptions.setPingTimeout(33L * 1000); 是服务端等待客户端发送ping消息的超时时间,如果超过这个时间服务端就会主动关闭websocket连接
-     *   sockJSHandlerOptions.setHeartbeatInterval(20L * 1000); 是服务端向客户端下发心跳消息(一个字符h)的间隔时间
+     *   bridgeOptions.setPingTimeout(33L * 1000); 是服务端等待客户端发送ping消息的超时时间,如果超过这个时间服务端就会主动关闭websocket连接(默认是10秒)
+     *   sockJSHandlerOptions.setHeartbeatInterval(30L * 1000); 是服务端向客户端下发心跳消息(一个字符h)的间隔时间
      * 客户端:
      *   eventBus = new EventBus('/eventbus', { server: 'ProcessOn', sessionId: 10, timeout: 60000,vertxbus_ping_interval: 30000 });
      *   `vertxbus_ping_interval`是客户端向服务端发送ping消息的间隔时间
@@ -147,7 +147,7 @@ public class AuctionServiceVerticle extends AbstractVerticle {
      *   二进制方式: {"type":"ping"}
      */
     SockJSBridgeOptions bridgeOptions = new SockJSBridgeOptions();
-    bridgeOptions.setPingTimeout(33L * 1000);  //是服务端等待客户端发送ping消息的超时时间,如果超过这个时间服务端就会主动关闭websocket连接
+    bridgeOptions.setPingTimeout(60L * 1000);  //是服务端等待客户端发送ping消息的超时时间,如果超过这个时间服务端就会主动关闭websocket连接(默认是10秒)
     
     bridgeOptions.addOutboundPermitted(new PermittedOptions().setAddressRegex("auction\\..+")); //"auction\\.[0-9]+"
     bridgeOptions.addInboundPermitted(new PermittedOptions().setAddressRegex("auction\\..+"));
@@ -159,10 +159,10 @@ public class AuctionServiceVerticle extends AbstractVerticle {
     bridgeOptions.addInboundPermitted(new PermittedOptions().setAddressRegex("page\\..+"));
 
     SockJSHandlerOptions sockJSHandlerOptions = new SockJSHandlerOptions();
-    if (profile.equalsIgnoreCase("dev")) { //如果是开发环境把session超时设置长一些,防止前端在断点调试时候被超时关闭.
-      sockJSHandlerOptions.setSessionTimeout(600L * 1000);
+    if (profile.equalsIgnoreCase("dev")) { //如果是开发环境把session超时设置长一些(默认是5秒)
+      sockJSHandlerOptions.setSessionTimeout(10L * 1000);  //是客户端建立socket连接后,第一次发送数据包的超时时间(默认是5秒)
     }
-    sockJSHandlerOptions.setHeartbeatInterval(20L * 1000);  //是服务端向客户端下发心跳消息(一个字符h)的间隔时间
+    sockJSHandlerOptions.setHeartbeatInterval(30L * 1000);  //是服务端向客户端下发心跳消息(一个字符h)的间隔时间
     sockJSHandlerOptions.setRegisterWriteHandler(false); //@wjw_note: 用了`eventbus bridge`方式就不能再使用`writeHandler`
     SockJSHandler sockJSHandler = SockJSHandler.create(vertx, sockJSHandlerOptions);
 
