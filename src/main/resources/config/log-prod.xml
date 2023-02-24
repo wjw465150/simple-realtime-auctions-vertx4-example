@@ -43,6 +43,20 @@ configuration 子节点为 appender、logger、root
       <charset>UTF-8</charset>
     </encoder>
   </appender>
+  <!--异步输出 appender-->
+  <appender name="FILE-INFO_ASYNC" class="ch.qos.logback.classic.AsyncAppender">
+      <!-- 队列的最大容量,该值会影响性能.默认值为256 -->
+      <queueSize>2048</queueSize>
+      
+      <!-- 队列剩余容量小于discardingThreshold,则会丢弃TRACT、DEBUG、INFO级别的日志;默认值-1,为queueSize的20%;0不丢失日志 -->
+      <discardingThreshold>0</discardingThreshold>
+ 
+      <!-- 队列满了，是否阻塞，默认为false；如果配置为true，则队列满了就丢弃日志； -->
+      <neverBlock>true</neverBlock>
+ 
+      <!-- 添加附加的appender,最多只能添加一个 -->
+      <appender-ref ref="FILE-INFO"/>
+  </appender>
   
   <!-- 按照每天生成WARN级别日志文件 -->
   <appender name="FILE-WARN" class="ch.qos.logback.core.rolling.RollingFileAppender">
@@ -65,6 +79,34 @@ configuration 子节点为 appender、logger、root
       <pattern>${LOG_PATTERN}</pattern>
       <charset>UTF-8</charset>
     </encoder>
+  </appender>
+  <!--异步输出 appender-->
+  <appender name="FILE-WARN_ASYNC" class="ch.qos.logback.classic.AsyncAppender">
+      <!-- 队列的最大容量,该值会影响性能.默认值为256 -->
+      <queueSize>2048</queueSize>
+      
+      <!-- 队列剩余容量小于discardingThreshold,则会丢弃TRACT、DEBUG、INFO级别的日志;默认值-1,为queueSize的20%;0不丢失日志 -->
+      <discardingThreshold>0</discardingThreshold>
+ 
+      <!-- 队列满了，是否阻塞，默认为false；如果配置为true，则队列满了就丢弃日志； -->
+      <neverBlock>false</neverBlock>
+ 
+      <!-- 添加附加的appender,最多只能添加一个 -->
+      <appender-ref ref="FILE-WARN"/>
+  </appender>
+  <!--异步输出 appender-->
+  <appender name="FILE-ERROR_ASYNC" class="ch.qos.logback.classic.AsyncAppender">
+    <!-- 队列的最大容量,该值会影响性能.默认值为256 -->
+    <queueSize>2048</queueSize>
+      
+    <!-- 队列剩余容量小于discardingThreshold,则会丢弃TRACT、DEBUG、INFO级别的日志;默认值-1,为queueSize的20%;0不丢失日志 -->
+    <discardingThreshold>0</discardingThreshold>
+ 
+    <!-- 队列满了，是否阻塞，默认为false；如果配置为true，则队列满了就丢弃日志； -->
+    <neverBlock>false</neverBlock>
+ 
+    <!-- 添加附加的appender,最多只能添加一个 -->
+    <appender-ref ref="FILE-ERROR"/>
   </appender>
   
   <!-- 按照每天生成ERROR级别日志文件 -->
@@ -93,18 +135,12 @@ configuration 子节点为 appender、logger、root
   <!--netty log configure -->    
   <logger name="io.netty" level="warn"/>
 
-  <!--myibatis log configure -->
-  <logger name="com.apache.ibatis" level="TRACE" />
-  <logger name="java.sql.Connection" level="DEBUG" />
-  <logger name="java.sql.Statement" level="DEBUG" />
-  <logger name="java.sql.PreparedStatement" level="DEBUG" />
-
   <!-- 日志输出级别 -->
   <root level="INFO">
     <appender-ref ref="STDOUT" />
-    <appender-ref ref="FILE-INFO" />
-    <appender-ref ref="FILE-WARN" />
-    <appender-ref ref="FILE-ERROR" />
+    <appender-ref ref="FILE-INFO_ASYNC" />
+    <appender-ref ref="FILE-WARN_ASYNC" />
+    <appender-ref ref="FILE-ERROR_ASYNC" />
   </root>
   
 </configuration>
