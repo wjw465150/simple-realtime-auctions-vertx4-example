@@ -147,7 +147,7 @@ public class AuctionServiceVerticle extends AbstractVerticle {
      *   二进制方式: {"type":"ping"}
      */
     SockJSBridgeOptions bridgeOptions = new SockJSBridgeOptions();
-    bridgeOptions.setPingTimeout(60L * 1000);  //是服务端等待客户端发送ping消息的超时时间,如果超过这个时间服务端就会主动关闭websocket连接(默认是10秒)
+    bridgeOptions.setPingTimeout(33L * 1000);  //是服务端等待客户端发送ping消息的超时时间,如果超过这个时间服务端就会主动关闭websocket连接(默认是10秒)
     
     bridgeOptions.addOutboundPermitted(new PermittedOptions().setAddressRegex("auction\\..+")); //"auction\\.[0-9]+"
     bridgeOptions.addInboundPermitted(new PermittedOptions().setAddressRegex("auction\\..+"));
