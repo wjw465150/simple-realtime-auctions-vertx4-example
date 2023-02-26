@@ -20,6 +20,8 @@ if(profileName==null) {
 processResources {
     exclude '**/*.map'
     
+    include 'logback.xml'
+    
     include 'META-INF/services/**'
     include '**/webroot/**'
 
