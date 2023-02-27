@@ -1,4 +1,41 @@
-{ 
-    "http.port" : 9092,
-    "logging": "config/log-prod.xml" 
+{
+  "http.port": 9092,
+  "logging": "config/log-prod.xml",
+  "redis": {
+    "threads": 16,
+    "nettyThreads": 32,
+    "codec": null,
+    "clusterServersConfig": {
+      "idleConnectionTimeout": 10000,
+      "connectTimeout": 10000,
+      "timeout": 3000,
+      "retryAttempts": 3,
+      "retryInterval": 1500,
+      "password": null,
+      "subscriptionsPerConnection": 5,
+      "clientName": null,
+      "subscriptionConnectionMinimumIdleSize": 1,
+      "subscriptionConnectionPoolSize": 50,
+      "loadBalancer": {
+        "class": "org.redisson.connection.balancer.RoundRobinLoadBalancer"
+      },
+      "failedSlaveReconnectionInterval": 3000,
+      "failedSlaveCheckInterval": 60000,
+      "slaveConnectionMinimumIdleSize": 24,
+      "slaveConnectionPoolSize": 64,
+      "masterConnectionMinimumIdleSize": 24,
+      "masterConnectionPoolSize": 64,
+      "readMode": "SLAVE",
+      "subscriptionMode": "SLAVE",
+      "nodeAddresses": [
+        "redis://172.30.64.189:7000",
+        "redis://172.30.64.106:7001",
+        "redis://172.30.64.152:7002"
+      ],
+      "scanInterval": 1000,
+      "pingConnectionInterval": 30000,
+      "keepAlive": false,
+      "tcpNoDelay": true
+    }
+  }
 }

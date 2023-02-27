@@ -61,6 +61,10 @@ application {
   mainClass = launcherClassName
 }
 
+ext {
+  redisson = [version : '3.19.3']
+}
+
 dependencies {
     implementation platform("io.vertx:vertx-stack-depchain:$vertxVersion")  //Vert.x Stack Depchain,集中了Vert.x的依赖版本管理,这样后面在导入Vert.x模块时就不必再填写版本号了!
     implementation "io.vertx:vertx-core"
@@ -70,6 +74,10 @@ dependencies {
     implementation "io.vertx:vertx-zookeeper"
     
     implementation "com.fasterxml.jackson.core:jackson-databind"
+
+    implementation("org.redisson:redisson:${redisson.version}") {
+      exclude group: "io.netty" //, module: "junit"
+    }
     
     implementation 'ch.qos.logback:logback-classic:1.2.10'
     
