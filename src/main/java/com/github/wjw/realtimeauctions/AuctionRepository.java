@@ -6,20 +6,22 @@
 package com.github.wjw.realtimeauctions;
 
 import java.math.BigDecimal;
-import java.util.Map;
 import java.util.Optional;
+
+import org.redisson.Redisson;
+import org.redisson.api.RMap;
 
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
-import io.vertx.core.shareddata.AsyncMap;
-import io.vertx.core.shareddata.SharedData;
+import io.vertx.core.Vertx;
 
 public class AuctionRepository {
+  private Vertx  vertx;
+  private String auctionIdMapNamePrefix;
 
-  private SharedData sharedData;
-
-  public AuctionRepository(SharedData sharedData) {
-    this.sharedData = sharedData;
+  public AuctionRepository(Vertx vertx) {
+    this.vertx = vertx;
+    auctionIdMapNamePrefix = vertx.getOrCreateContext().config().getString("profile") + "_auction_";
   }
 
   /**
@@ -29,21 +31,18 @@ public class AuctionRepository {
    * @return {@code Future<Optional<Auction>>}
    */
   public Future<Optional<Auction>> getById(String auctionId) {
-    Promise<Optional<Auction>>       promise = Promise.promise();
-    Future<AsyncMap<String, String>> fFuture = this.sharedData.getAsyncMap(auctionId);
-    fFuture.onSuccess(it -> {
-      it.size().onSuccess(size -> {
-        if (size == 0) {
-          promise.complete(Optional.empty());
-        } else {
-          it.entries().map(this::convertToAuction).onSuccess(auction -> {
-            promise.complete(Optional.of(auction));
-          });
-        }
-      });
-    }).onFailure(ex -> {
-      promise.fail(ex);
-    });
+    Promise<Optional<Auction>> promise = Promise.promise();
+
+    RMap<String, String> auctionIdRMap = vertx.getOrCreateContext()
+        .<Redisson> get("redis")
+        .getMap(auctionIdMapNamePrefix + auctionId);
+    if (auctionIdRMap.size() == 0) {
+      promise.complete(Optional.empty());
+    } else {
+      Auction auction = new Auction(auctionIdRMap.get("id"), new BigDecimal(auctionIdRMap.get("price")));
+      promise.complete(Optional.of(auction));
+    }
+
     return promise.future();
   }
 
@@ -53,24 +52,11 @@ public class AuctionRepository {
    * @param auction the auction
    */
   public void save(Auction auction) {
-    Future<AsyncMap<String, String>> future = this.sharedData.getAsyncMap(auction.getId());
-    future.onSuccess(it -> {
-      it.put("id", auction.getId());
-      it.put("price", auction.getPrice().toString());
-    });
+    RMap<String, String> auctionIdRMap = vertx.getOrCreateContext()
+        .<Redisson> get("redis")
+        .getMap(auctionIdMapNamePrefix + auction.getId());
+    auctionIdRMap.put("id", auction.getId());
+    auctionIdRMap.put("price", auction.getPrice().toString());
   }
 
-  
-  /**
-   * Convert Map to auction.
-   *
-   * @param the Map hold the auction data
-   * @return the auction
-   */
-  private Auction convertToAuction(Map<String, String> auction) {
-    return new Auction(
-        auction.get("id"),
-        new BigDecimal(auction.get("price"))
-    );
-  }
 }

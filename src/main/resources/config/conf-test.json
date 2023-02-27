@@ -20,7 +20,7 @@
       "connectionPoolSize": 64,
       "dnsMonitoringInterval": 5000,
       "address": "redis://127.0.0.1:6379",
-      "database": 0
+      "database": 1
     }
   }
 }

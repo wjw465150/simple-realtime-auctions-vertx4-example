@@ -5,11 +5,16 @@
  */
 package com.github.wjw.realtimeauctions;
 
+import java.io.IOException;
 import java.text.MessageFormat;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 
+import org.redisson.Redisson;
+import org.redisson.api.RMap;
+import org.redisson.api.RedissonClient;
+import org.redisson.config.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -22,7 +27,6 @@ import io.vertx.core.eventbus.DeliveryOptions;
 import io.vertx.core.eventbus.Message;
 import io.vertx.core.eventbus.MessageConsumer;
 import io.vertx.core.json.JsonObject;
-import io.vertx.core.shareddata.AsyncMap;
 import io.vertx.ext.bridge.BridgeEventType;
 import io.vertx.ext.bridge.PermittedOptions;
 import io.vertx.ext.web.Router;
@@ -36,11 +40,14 @@ import io.vertx.ext.web.handler.sockjs.SockJSHandler;
 import io.vertx.ext.web.handler.sockjs.SockJSHandlerOptions;
 
 public class AuctionServiceVerticle extends AbstractVerticle {
-  public final static Integer PORT = 9090;
+  public final static Integer PORT              = 9090;
   private static final String SEC_WEBSOCKET_KEY = "sec-websocket-key";
 
-  private Logger              logger;
-  private String              profile;
+  private Logger logger;
+  private String profile;
+
+  //redis客户端
+  RedissonClient redisson;
 
   private Map<String, String> socketUriAndPageIdMap = new HashMap<>();
   private Map<String, String> pageIdAndSocketUriMap = new HashMap<>();
@@ -48,7 +55,7 @@ public class AuctionServiceVerticle extends AbstractVerticle {
   private Map<String, String> socketUriAndUserIdMap  = new HashMap<>();
   private static final String USER_AND_PAGE_MAP_NAME = "UserAndPage";
   //key是userId, value是一个JSON对象(里面key是socketUri,value是pageId)
-  private AsyncMap<String, JsonObject> asyncUserIdAndSocketUri_PageMap;
+  private RMap<String, JsonObject> remoteUserIdAndSocketUri_PageMap;
 
   private Map<String, MessageConsumer<JsonObject>> pageIdAndConsumerUserMsgMap = new HashMap<>();
 
@@ -96,35 +103,53 @@ public class AuctionServiceVerticle extends AbstractVerticle {
         }
       }
       logger.info("!!!!!!=================Vertx App profile:" + profile + "=================!!!!!!");
+      vertx.getOrCreateContext().config().mergeIn(json, true);
+      vertx.getOrCreateContext().config().put("profile", profile);
 
-      vertx.sharedData().<String, JsonObject> getAsyncMap(USER_AND_PAGE_MAP_NAME).onSuccess(itMap -> {
-        asyncUserIdAndSocketUri_PageMap = itMap;
+      //初始化redisson
+      String jsonRedissonConfig = json.getJsonObject("redis").encode();
+      try {
+        Config config = Config.fromJSON(jsonRedissonConfig);
+        this.redisson = Redisson.create(config);
+        vertx.getOrCreateContext().put("redis", redisson);
+      } catch (IOException e) {
+        logger.error(e.getMessage(), e);
+        startPromise.fail(e);
+        return;
+      }
+      remoteUserIdAndSocketUri_PageMap = redisson.getMap(profile + "_" + USER_AND_PAGE_MAP_NAME);
 
-        Router router = Router.router(vertx);
+      Router router = Router.router(vertx);
 
-        { //先route基础handler
-          router.route().failureHandler(errorHandler()); //将故障处理程序附加到路由故障处理程序列表。
-          router.route().handler(staticHandler()); //Vert.x-Web 带有一个开箱即用的处理程序，用于提供静态 Web 资源
-          router.route().handler(ResponseTimeHandler.create()); //此处理程序设置标头`x-response-time`响应标头，其中包含从收到请求到写入响应标头的时间，以毫秒为单位
-          if (profile.equalsIgnoreCase("prod") == false) { //生产状态不记录web日志
-            //router.route().handler(LoggerHandler.create()); //Vert.x-Web 包含一个处理程序`LoggerHandler`，您可以使用它来记录 HTTP 请求。 您应该在任何可能使 `RoutingContext` 失败的处理程序之前安装此处理程序
-          }
+      { //先route基础handler
+        router.route().failureHandler(errorHandler()); //将故障处理程序附加到路由故障处理程序列表。
+        router.route().handler(staticHandler()); //Vert.x-Web 带有一个开箱即用的处理程序，用于提供静态 Web 资源
+        router.route().handler(ResponseTimeHandler.create()); //此处理程序设置标头`x-response-time`响应标头，其中包含从收到请求到写入响应标头的时间，以毫秒为单位
+        if (profile.equalsIgnoreCase("prod") == false) { //生产状态不记录web日志
+          //router.route().handler(LoggerHandler.create()); //Vert.x-Web 包含一个处理程序`LoggerHandler`，您可以使用它来记录 HTTP 请求。 您应该在任何可能使 `RoutingContext` 失败的处理程序之前安装此处理程序
         }
+      }
 
-        router.route("/eventbus/*").subRouter(eventBusHandler()); //安装处理event-bus的子路由
-        router.route("/api/*").subRouter(auctionApiRouter()); //安装处理竞价的子路由
+      router.route("/eventbus/*").subRouter(eventBusHandler()); //安装处理event-bus的子路由
+      router.route("/api/*").subRouter(auctionApiRouter()); //安装处理竞价的子路由
 
-        vertx.createHttpServer()
-            .requestHandler(router)
-            .listen(json.getInteger("http.port", PORT))
-            .onSuccess(server -> {
-              logger.info("Realtime Auctions Server start OK! listen port: " + server.actualPort());
-              startPromise.complete();
-            })
-            .onFailure(throwable -> startPromise.fail(throwable));
-      }).onFailure(throwable -> startPromise.fail(throwable));
-
+      vertx.createHttpServer()
+          .requestHandler(router)
+          .listen(json.getInteger("http.port", PORT))
+          .onSuccess(server -> {
+            logger.info("Realtime Auctions Server start OK! listen port: " + server.actualPort());
+            startPromise.complete();
+          })
+          .onFailure(throwable -> startPromise.fail(throwable));
     });
+  }
+
+  @Override
+  public void stop(Promise<Void> stopPromise) throws Exception {
+    Redisson tmpRedisson = vertx.getOrCreateContext().<Redisson> get("redis");
+    tmpRedisson.shutdown();
+
+    stopPromise.complete();
   }
 
   /**
@@ -136,19 +161,19 @@ public class AuctionServiceVerticle extends AbstractVerticle {
    * @return the router
    */
   private Router eventBusHandler() {
-    /* 对 服务端&客户端 保持连接的的注解
-     * 服务端:
-     *   bridgeOptions.setPingTimeout(33L * 1000); 是服务端等待客户端发送ping消息的超时时间,如果超过这个时间服务端就会主动关闭websocket连接(默认是10秒)
-     *   sockJSHandlerOptions.setHeartbeatInterval(30L * 1000); 是服务端向客户端下发心跳消息(一个字符h)的间隔时间
-     * 客户端:
-     *   eventBus = new EventBus('/eventbus', { server: 'ProcessOn', sessionId: 10, timeout: 60000,vertxbus_ping_interval: 30000 });
-     *   `vertxbus_ping_interval`是客户端向服务端发送ping消息的间隔时间
-     *   文本方式: ["{\"type\":\"ping\"}"]
-     *   二进制方式: {"type":"ping"}
+    /*
+     * 对 服务端&客户端 保持连接的的注解 服务端: bridgeOptions.setPingTimeout(33L * 1000);
+     * 是服务端等待客户端发送ping消息的超时时间,如果超过这个时间服务端就会主动关闭websocket连接(默认是10秒)
+     * sockJSHandlerOptions.setHeartbeatInterval(30L * 1000);
+     * 是服务端向客户端下发心跳消息(一个字符h)的间隔时间 客户端: eventBus = new EventBus('/eventbus', {
+     * server: 'ProcessOn', sessionId: 10, timeout:
+     * 60000,vertxbus_ping_interval: 30000 });
+     * `vertxbus_ping_interval`是客户端向服务端发送ping消息的间隔时间 文本方式:
+     * ["{\"type\":\"ping\"}"] 二进制方式: {"type":"ping"}
      */
     SockJSBridgeOptions bridgeOptions = new SockJSBridgeOptions();
-    bridgeOptions.setPingTimeout(33L * 1000);  //是服务端等待客户端发送ping消息的超时时间,如果超过这个时间服务端就会主动关闭websocket连接(默认是10秒)
-    
+    bridgeOptions.setPingTimeout(33L * 1000); //是服务端等待客户端发送ping消息的超时时间,如果超过这个时间服务端就会主动关闭websocket连接(默认是10秒)
+
     bridgeOptions.addOutboundPermitted(new PermittedOptions().setAddressRegex("auction\\..+")); //"auction\\.[0-9]+"
     bridgeOptions.addInboundPermitted(new PermittedOptions().setAddressRegex("auction\\..+"));
 
@@ -160,26 +185,30 @@ public class AuctionServiceVerticle extends AbstractVerticle {
 
     SockJSHandlerOptions sockJSHandlerOptions = new SockJSHandlerOptions();
     if (profile.equalsIgnoreCase("dev")) { //如果是开发环境把session超时设置长一些(默认是5秒)
-      sockJSHandlerOptions.setSessionTimeout(10L * 1000);  //是客户端建立socket连接后,第一次发送数据包的超时时间(默认是5秒)
+      sockJSHandlerOptions.setSessionTimeout(10L * 1000); //是客户端建立socket连接后,第一次发送数据包的超时时间(默认是5秒)
     }
-    sockJSHandlerOptions.setHeartbeatInterval(30L * 1000);  //是服务端向客户端下发心跳消息(一个字符h)的间隔时间
+    sockJSHandlerOptions.setHeartbeatInterval(30L * 1000); //是服务端向客户端下发心跳消息(一个字符h)的间隔时间
     sockJSHandlerOptions.setRegisterWriteHandler(false); //@wjw_note: 用了`eventbus bridge`方式就不能再使用`writeHandler`
     SockJSHandler sockJSHandler = SockJSHandler.create(vertx, sockJSHandlerOptions);
 
     return sockJSHandler.bridge(bridgeOptions, event -> {
       if (event.type() == BridgeEventType.SOCKET_CREATED) {
         //TODO: 对`event.socket().headers().get()`获取,键是不区分大小写的!
-        String socketUri = (event.socket().uri() + "-" + event.socket().headers().get(SEC_WEBSOCKET_KEY)).replaceAll("/", ".");
-        
+        String socketUri = (event.socket().uri() + "-" + event.socket().headers().get(SEC_WEBSOCKET_KEY))
+            .replaceAll("/", ".");
+
         logger.info(MessageFormat.format("A WebSocket was created,socketId: `{0}`", socketUri));
       } else if (event.type() == BridgeEventType.SOCKET_CLOSED) {
         onSocketClosed(event);
       } else if (event.type() == BridgeEventType.REGISTERED) {
         onSocketRegistered(event);
-      } else if (event.type() == BridgeEventType.UNREGISTER) {  //当直接关闭页面时会先触发UNREGISTER事件,再触发SOCKET_CLOSED事件
-        String socketUri = (event.socket().uri() + "-" + event.socket().headers().get(SEC_WEBSOCKET_KEY)).replaceAll("/", ".");
-        
-        logger.info(MessageFormat.format("A WebSocket was unregister,uri: `{0}`, rawMessage: `{1}`", socketUri, event.getRawMessage().encode()));
+      } else if (event.type() == BridgeEventType.UNREGISTER) { //当直接关闭页面时会先触发UNREGISTER事件,再触发SOCKET_CLOSED事件
+        String socketUri = (event.socket().uri() + "-" + event.socket().headers().get(SEC_WEBSOCKET_KEY))
+            .replaceAll("/", ".");
+
+        logger.info(MessageFormat.format("A WebSocket was unregister,uri: `{0}`, rawMessage: `{1}`",
+            socketUri,
+            event.getRawMessage().encode()));
       }
 
       event.complete(true); //使用“true”完成`Promise`以启用进一步处理
@@ -187,10 +216,13 @@ public class AuctionServiceVerticle extends AbstractVerticle {
   }
 
   private void onSocketRegistered(BridgeEvent event) {
-    String socketUri = (event.socket().uri() + "-" + event.socket().headers().get(SEC_WEBSOCKET_KEY)).replaceAll("/", ".");
-    logger.info(MessageFormat.format("A WebSocket was registered,uri: `{0}`, rawMessage: `{1}`", socketUri, event.getRawMessage().encode()));
-    
-    if (event.getRawMessage().getString("address").startsWith("auction.") == false || event.getRawMessage().getJsonObject("headers") == null) {
+    String socketUri = (event.socket().uri() + "-" + event.socket().headers().get(SEC_WEBSOCKET_KEY)).replaceAll("/",
+        ".");
+    logger.info(MessageFormat
+        .format("A WebSocket was registered,uri: `{0}`, rawMessage: `{1}`", socketUri, event.getRawMessage().encode()));
+
+    if (event.getRawMessage().getString("address").startsWith("auction.") == false || event.getRawMessage()
+        .getJsonObject("headers") == null) {
       return;
     }
 
@@ -210,18 +242,17 @@ public class AuctionServiceVerticle extends AbstractVerticle {
     socketUriAndUserIdMap.put(socketUri, userId);
 
     //再把userId和(socketUri, pageId)放到Map里
-    asyncUserIdAndSocketUri_PageMap.get(userId).onComplete(asr -> {
-      JsonObject jsObj = asr.result();
-      if (jsObj == null) {
-        jsObj = new JsonObject();
-      }
-      jsObj.put(socketUri, pageId);
-      asyncUserIdAndSocketUri_PageMap.put(userId, jsObj);
-    });
+    JsonObject jsObj = remoteUserIdAndSocketUri_PageMap.get(userId);
+    if (jsObj == null) {
+      jsObj = new JsonObject();
+    }
+    jsObj.put(socketUri, pageId);
+    remoteUserIdAndSocketUri_PageMap.put(userId, jsObj);
   }
 
   private void onSocketClosed(BridgeEvent event) {
-    String socketUri = (event.socket().uri()+"-"+event.socket().headers().get(SEC_WEBSOCKET_KEY)).replaceAll("/", ".");
+    String socketUri = (event.socket().uri() + "-" + event.socket().headers().get(SEC_WEBSOCKET_KEY)).replaceAll("/",
+        ".");
     logger.info(MessageFormat.format("A WebSocket was closed,uri: `{0}`", socketUri));
 
     String pageId         = socketUriAndPageIdMap.remove(socketUri);
@@ -237,26 +268,23 @@ public class AuctionServiceVerticle extends AbstractVerticle {
       return;
     }
 
-    asyncUserIdAndSocketUri_PageMap.get(userId).onComplete(it -> {
-      JsonObject jsObj       = it.result();
-      String     storePageId = (String) jsObj.remove(socketUri);
-      if (pageId.equals(storePageId) == false) {
-        logger.warn(MessageFormat.format("没找到此 socketUri: `{0}` 下的 pageId: `{1}`", socketUri, storePageId));
-      } else {
-        asyncUserIdAndSocketUri_PageMap.put(userId, jsObj);
-        logger.info(MessageFormat.format("移除 绑定到此socketUri: `{0}` 下的 pageId: `{1}`", socketUri, storePageId));
+    JsonObject jsObj       = remoteUserIdAndSocketUri_PageMap.get(userId);
+    String     storePageId = (String) jsObj.remove(socketUri);
+    if (pageId.equals(storePageId) == false) {
+      logger.warn(MessageFormat.format("没找到此 socketUri: `{0}` 下的 pageId: `{1}`", socketUri, storePageId));
+    } else {
+      remoteUserIdAndSocketUri_PageMap.put(userId, jsObj);
+      logger.info(MessageFormat.format("移除 绑定到此socketUri: `{0}` 下的 pageId: `{1}`", socketUri, storePageId));
 
-        MessageConsumer<JsonObject> consumerUserMsg = pageIdAndConsumerUserMsgMap.remove(pageId);
-        consumerUserMsg.unregister();
-        logger.info(MessageFormat.format("移除 绑定到此pageId: `{0}` 下的 consumer: `{1}`", pageId, consumerUserMsg));
-      }
-    }).andThen(it -> {
-      JsonObject jsObj = it.result();
+      MessageConsumer<JsonObject> consumerUserMsg = pageIdAndConsumerUserMsgMap.remove(pageId);
+      consumerUserMsg.unregister();
+      logger.info(MessageFormat.format("移除 绑定到此pageId: `{0}` 下的 consumer: `{1}`", pageId, consumerUserMsg));
+
       if (jsObj.size() == 0) {
-        asyncUserIdAndSocketUri_PageMap.remove(userId);
+        remoteUserIdAndSocketUri_PageMap.remove(userId);
         logger.info(MessageFormat.format("移除 AsyncMap: `{0}` 下的 `{1}`", USER_AND_PAGE_MAP_NAME, userId));
       }
-    });
+    }
   }
 
   private void userMsgHandler(Message<JsonObject> message) {
@@ -272,16 +300,15 @@ public class AuctionServiceVerticle extends AbstractVerticle {
     logger.info(rMsg);
 
     //查询出这个userId下的所关联的所有的pageId,然后转发过去.
-    asyncUserIdAndSocketUri_PageMap.get(userId).onComplete(it -> {
-      JsonObject jsSocketAndPageId = it.result();
-      jsSocketAndPageId.fieldNames().forEach(key -> {
-        //if (key.equals(socketUri) == false) { //过滤掉发送方的
-        String pageId2 = jsSocketAndPageId.getString(key);
-        vertx.eventBus().send(pageId2, message.body(), new DeliveryOptions().setHeaders(message.headers()));
-        //}
-      });
 
+    JsonObject jsSocketAndPageId = remoteUserIdAndSocketUri_PageMap.get(userId);
+    jsSocketAndPageId.fieldNames().forEach(key -> {
+      //if (key.equals(socketUri) == false) { //过滤掉发送方的
+      String pageId2 = jsSocketAndPageId.getString(key);
+      vertx.eventBus().send(pageId2, message.body(), new DeliveryOptions().setHeaders(message.headers()));
+      //}
     });
+
   }
 
   /**
@@ -292,7 +319,7 @@ public class AuctionServiceVerticle extends AbstractVerticle {
    * @return the router
    */
   private Router auctionApiRouter() {
-    AuctionRepository repository = new AuctionRepository(vertx.sharedData());
+    AuctionRepository repository = new AuctionRepository(vertx);
     AuctionValidator  validator  = new AuctionValidator(repository);
     AuctionHandler    handler    = new AuctionHandler(repository, validator);
 
