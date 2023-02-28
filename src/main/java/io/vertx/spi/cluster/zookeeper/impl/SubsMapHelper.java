@@ -144,7 +144,8 @@ public class SubsMapHelper implements TreeCacheListener {
                     int childSize = curator.getChildren().forPath(parentPath).size();  //First see if we have children
                     if (childSize == 0) {
                       log.info("removed no child eventbus node:" + parentPath);
-                      curator.delete().forPath(parentPath); // TODO: 可能会有并发冲突,同时会有其它节点都在(添加 & 删除)
+                      //curator.delete().forPath(parentPath); // TODO: 可能会有并发冲突,同时会有其它节点都在(添加 & 删除)
+                      curator.delete().deletingChildrenIfNeeded().forPath(parentPath); // TODO: 可能会有并发冲突,同时会有其它节点都在(添加 & 删除)
                     }
                   }
                 } catch (Exception e1) {
