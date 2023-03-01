@@ -10,6 +10,7 @@ import java.text.MessageFormat;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.redisson.Redisson;
 import org.redisson.api.RMap;
@@ -43,11 +44,13 @@ public class AuctionServiceVerticle extends AbstractVerticle {
   public final static Integer PORT              = 9090;
   private static final String SEC_WEBSOCKET_KEY = "sec-websocket-key";
 
+  //记录被实例化的次数
+  private static AtomicInteger instancesCount = new AtomicInteger(0);
+  //redis客户端(单实例就行)
+  private static RedissonClient redisson;
+
   private Logger logger;
   private String profile;
-
-  //redis客户端
-  RedissonClient redisson;
 
   private Map<String, String> socketUriAndPageIdMap = new HashMap<>();
   private Map<String, String> socketUriAndUserIdMap = new HashMap<>();
@@ -92,62 +95,67 @@ public class AuctionServiceVerticle extends AbstractVerticle {
     ConfigRetriever        retriever      = ConfigRetriever.create(vertx, configOptions);
 
     retriever.getConfig().onSuccess(json -> {
-      {//@wjw_note: 加载log的配置文件!
-        try {
-          String log_config_path = json.getString("logging");
-          LogBackConfigLoader.load(log_config_path);
-          logger.info("Logback configure file: " + log_config_path);
-        } catch (Exception e) {
-          e.printStackTrace();
-          startPromise.fail(e);
+      synchronized (AuctionServiceVerticle.class) {
+        if (instancesCount.incrementAndGet() == 1) {
+          //@wjw_note: 加载log的配置文件!
+          try {
+            String log_config_path = json.getString("logging");
+            LogBackConfigLoader.load(log_config_path);
+            logger.info("Logback configure file: " + log_config_path);
+          } catch (Exception e) {
+            e.printStackTrace();
+            startPromise.fail(e);
+          }
+
+          //初始化redisson
+          String jsonRedissonConfig = json.getJsonObject("redis").encode();
+          try {
+            Config config = Config.fromJSON(jsonRedissonConfig);
+            this.redisson = Redisson.create(config);
+          } catch (IOException e) {
+            logger.error(e.getMessage(), e);
+            startPromise.fail(e);
+            return;
+          }
         }
-      }
-      logger.info("!!!!!!=================Vertx App profile:" + profile + "=================!!!!!!");
-      vertx.getOrCreateContext().config().mergeIn(json, true);
-      vertx.getOrCreateContext().config().put("profile", profile);
+        logger.info(MessageFormat.format("Start Vertx App profile:{0},instance:{1}", profile, instancesCount.get()));
+        this.config().mergeIn(json, true);
+        this.config().put("profile", profile);
 
-      //初始化redisson
-      String jsonRedissonConfig = json.getJsonObject("redis").encode();
-      try {
-        Config config = Config.fromJSON(jsonRedissonConfig);
-        this.redisson = Redisson.create(config);
-        vertx.getOrCreateContext().put("redis", redisson);
-      } catch (IOException e) {
-        logger.error(e.getMessage(), e);
-        startPromise.fail(e);
-        return;
-      }
-      userIdAndSocketUri_PageRMap = redisson.getMap(profile + "_" + USER_AND_PAGE_MAP_NAME);
+        userIdAndSocketUri_PageRMap = redisson.getMap(profile + "_" + USER_AND_PAGE_MAP_NAME);
 
-      Router router = Router.router(vertx);
+        Router router = Router.router(vertx);
 
-      { //先route基础handler
-        router.route().failureHandler(errorHandler()); //将故障处理程序附加到路由故障处理程序列表。
-        router.route().handler(staticHandler()); //Vert.x-Web 带有一个开箱即用的处理程序，用于提供静态 Web 资源
-        router.route().handler(ResponseTimeHandler.create()); //此处理程序设置标头`x-response-time`响应标头，其中包含从收到请求到写入响应标头的时间，以毫秒为单位
-        if (profile.equalsIgnoreCase("prod") == false) { //生产状态不记录web日志
-          //router.route().handler(LoggerHandler.create()); //Vert.x-Web 包含一个处理程序`LoggerHandler`，您可以使用它来记录 HTTP 请求。 您应该在任何可能使 `RoutingContext` 失败的处理程序之前安装此处理程序
+        { //先route基础handler
+          router.route().failureHandler(errorHandler()); //将故障处理程序附加到路由故障处理程序列表。
+          router.route().handler(staticHandler()); //Vert.x-Web 带有一个开箱即用的处理程序，用于提供静态 Web 资源
+          router.route().handler(ResponseTimeHandler.create()); //此处理程序设置标头`x-response-time`响应标头，其中包含从收到请求到写入响应标头的时间，以毫秒为单位
+          if (profile.equalsIgnoreCase("prod") == false) { //生产状态不记录web日志
+            //router.route().handler(LoggerHandler.create()); //Vert.x-Web 包含一个处理程序`LoggerHandler`，您可以使用它来记录 HTTP 请求。 您应该在任何可能使 `RoutingContext` 失败的处理程序之前安装此处理程序
+          }
         }
+
+        router.route("/eventbus/*").subRouter(eventBusHandler()); //安装处理event-bus的子路由
+        router.route("/api/*").subRouter(auctionApiRouter()); //安装处理竞价的子路由
+
+        vertx.createHttpServer()
+            .requestHandler(router)
+            .listen(json.getInteger("http.port", PORT))
+            .onSuccess(server -> {
+              logger.info("Realtime Auctions Server start OK! listen port: " + server.actualPort());
+              startPromise.complete();
+            })
+            .onFailure(throwable -> startPromise.fail(throwable));
       }
-
-      router.route("/eventbus/*").subRouter(eventBusHandler()); //安装处理event-bus的子路由
-      router.route("/api/*").subRouter(auctionApiRouter()); //安装处理竞价的子路由
-
-      vertx.createHttpServer()
-          .requestHandler(router)
-          .listen(json.getInteger("http.port", PORT))
-          .onSuccess(server -> {
-            logger.info("Realtime Auctions Server start OK! listen port: " + server.actualPort());
-            startPromise.complete();
-          })
-          .onFailure(throwable -> startPromise.fail(throwable));
     });
+
   }
 
   @Override
   public void stop(Promise<Void> stopPromise) throws Exception {
-    Redisson tmpRedisson = vertx.getOrCreateContext().<Redisson> get("redis");
-    tmpRedisson.shutdown();
+    if (instancesCount.decrementAndGet() == 0) {
+      redisson.shutdown();
+    }
 
     stopPromise.complete();
   }
