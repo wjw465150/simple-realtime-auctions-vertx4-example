@@ -27,9 +27,14 @@ import io.vertx.core.Promise;
 import io.vertx.core.eventbus.DeliveryOptions;
 import io.vertx.core.eventbus.Message;
 import io.vertx.core.eventbus.MessageConsumer;
+import io.vertx.core.impl.VertxInternal;
 import io.vertx.core.json.JsonObject;
+import io.vertx.core.spi.cluster.ClusterManager;
 import io.vertx.ext.bridge.BridgeEventType;
 import io.vertx.ext.bridge.PermittedOptions;
+import io.vertx.ext.healthchecks.HealthCheckHandler;
+import io.vertx.ext.healthchecks.HealthChecks;
+import io.vertx.ext.healthchecks.Status;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.handler.BodyHandler;
 import io.vertx.ext.web.handler.ErrorHandler;
@@ -135,6 +140,8 @@ public class AuctionServiceVerticle extends AbstractVerticle {
           }
         }
 
+        addHealthCheck(router);
+
         router.route("/eventbus/*").subRouter(eventBusHandler()); //安装处理event-bus的子路由
         router.route("/api/*").subRouter(auctionApiRouter()); //安装处理竞价的子路由
 
@@ -158,6 +165,54 @@ public class AuctionServiceVerticle extends AbstractVerticle {
     }
 
     stopPromise.complete();
+  }
+
+  /**
+   * Adds the health check.添加健康检查
+   *
+   * @param router the router
+   */
+  private void addHealthCheck(Router router) {
+    HealthCheckHandler healthCheckHandlerRedis = HealthCheckHandler
+        .createWithHealthChecks(HealthChecks.create(vertx));
+    // 向 router 添加路由规则
+    // 注册健康检查 handler
+    router.get("/health/redis").handler(healthCheckHandlerRedis);
+
+    healthCheckHandlerRedis.register("redis", promise -> {
+      try {
+        promise.complete(Status.OK(new JsonObject(redisson.getConfig().toJSON())));
+      } catch (Exception e) {
+        e.printStackTrace();
+        promise.complete(Status.KO(new JsonObject().put("err", e.getMessage())));
+      }
+    });
+
+    HealthCheckHandler healthCheckHandlerEventBus = HealthCheckHandler
+        .createWithHealthChecks(HealthChecks.create(vertx));
+    router.get("/health/vertx").handler(healthCheckHandlerEventBus);
+    healthCheckHandlerEventBus.register("vertx", promise -> {
+      try {
+        JsonObject jsonResp = new JsonObject()
+            .put("EventBusIsMetricsEnabled", vertx.eventBus().isMetricsEnabled())
+            .put("VertxIsMetricsEnabled", vertx.isMetricsEnabled())
+            .put("VertxIsClustered", vertx.isClustered());
+
+        VertxInternal vertxInternal = (VertxInternal) vertx;
+
+        if(vertx.isClustered()==true) {
+          ClusterManager clusterManager = vertxInternal.getClusterManager();
+          
+          jsonResp.put("nodes", clusterManager.getNodes());
+        }
+        
+        promise.complete(Status.OK(jsonResp));
+      } catch (Exception e) {
+        // TODO Auto-generated catch block
+        e.printStackTrace();
+        promise.complete(Status.KO(new JsonObject().put("err", e.getMessage())));
+      }
+    });
   }
 
   /**

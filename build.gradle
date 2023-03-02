@@ -79,7 +79,9 @@ dependencies {
       exclude group: "io.netty" //, module: "junit"
     }
     
-    implementation 'ch.qos.logback:logback-classic:1.2.10'
+    implementation "ch.qos.logback:logback-classic:1.2.10"
+    
+    implementation "io.vertx:vertx-health-check"
     
     testImplementation "io.vertx:vertx-junit5"
     testImplementation "org.junit.jupiter:junit-jupiter:$junitJupiterVersion"
