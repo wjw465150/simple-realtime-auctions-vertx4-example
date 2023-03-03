@@ -135,24 +135,6 @@ public class SubsMapHelper implements TreeCacheListener {
           if (e.getType() == CuratorEventType.DELETE) {
             vertx.runOnContext(aVoid -> {
               ownSubs.computeIfPresent(address, (add, curr) -> removeFromSet(registrationInfo, curr));
-              //@wjw_add-> 
-//              Set<RegistrationInfo> regInfoSet = ownSubs.computeIfPresent(address, (add, curr) -> removeFromSet(registrationInfo, curr));
-//              if (regInfoSet == null) { //There are no child nodes below
-//                try {
-//                  String parentPath = keyPath.apply(address);
-//                  if (parentPath.startsWith(VERTX_SUBS_NAME)) { // TODO: 这里可以自己定义一个路径规则
-//                    int childSize = curator.getChildren().forPath(parentPath).size();  //First see if we have children
-//                    if (childSize == 0) {
-//                      log.info("removed no child eventbus node:" + parentPath);
-//                      //curator.delete().forPath(parentPath); // TODO: 可能会有并发冲突,同时会有其它节点都在(添加 & 删除)
-//                      curator.delete().deletingChildrenIfNeeded().forPath(parentPath); // TODO: 可能会有并发冲突,同时会有其它节点都在(添加 & 删除)
-//                    }
-//                  }
-//                } catch (Exception e1) {
-//                  log.warn(String.format("remove subs address %s failed.", address), e1);
-//                }
-//              }
-              //<-@wjw_add 
               promise.complete();
             });
           }

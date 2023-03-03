@@ -51,7 +51,7 @@ repositories {
   mavenCentral()
 }
 
-def vertxVersion = "4.3.8"
+def vertxVersion = "4.4.0"
 def junitJupiterVersion = "5.7.0"
 
 def mainVerticleName = "com.github.wjw.realtimeauctions.AuctionServiceVerticle"
