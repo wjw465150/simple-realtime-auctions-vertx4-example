@@ -41,8 +41,8 @@ version = "1.0-${profileName}"
 
 description = """使用Websockets和Vert.x进行实时竞价"""
 
-sourceCompatibility = 1.8
-targetCompatibility = 1.8
+sourceCompatibility = "11"
+targetCompatibility = "11"
 [compileJava, compileTestJava]*.options*.encoding = 'UTF-8'
 
 repositories {
@@ -62,7 +62,7 @@ application {
 }
 
 ext {
-  redisson = [version : '3.19.3']
+  redisson = [version : '3.20.0']
 }
 
 dependencies {
