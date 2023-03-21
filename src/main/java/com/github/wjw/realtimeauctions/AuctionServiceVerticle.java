@@ -100,18 +100,19 @@ public class AuctionServiceVerticle extends AbstractVerticle {
     ConfigRetriever        retriever      = ConfigRetriever.create(vertx, configOptions);
 
     retriever.getConfig().onSuccess(json -> {
+      //@wjw_note: 加载log的配置文件!
+      try {
+        String log_config_path = json.getString("logging");
+        if(LogBackConfigLoader.load(log_config_path)) {
+          logger.info("Logback configure file: " + log_config_path);
+        }
+      } catch (Exception e) {
+        e.printStackTrace();
+        startPromise.fail(e);
+      }
+      
       synchronized (AuctionServiceVerticle.class) {
-        if (instancesCount.incrementAndGet() == 1) {
-          //@wjw_note: 加载log的配置文件!
-          try {
-            String log_config_path = json.getString("logging");
-            LogBackConfigLoader.load(log_config_path);
-            logger.info("Logback configure file: " + log_config_path);
-          } catch (Exception e) {
-            e.printStackTrace();
-            startPromise.fail(e);
-          }
-
+        if (instancesCount.incrementAndGet() == 1) { //这里面只初始化静态变量
           //初始化redisson
           String jsonRedissonConfig = json.getJsonObject("redis").encode();
           try {

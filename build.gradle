@@ -1,5 +1,5 @@
 //@wjw_note: 根据传进来的profile系统属性来打包.例如: gradlew clean build -x test -Dprofile=test
-//@wjw_note: 单jar运行: java -jar build\libs\simple-realtime-auctions-vertx3-example-1.0-test-fat -Dprofile=test
+//@wjw_note: 单jar运行: java -Dprofile=test -jar build\libs\simple-realtime-auctions-vertx3-example-1.0-test-fat
 
 plugins {
   id 'java'
