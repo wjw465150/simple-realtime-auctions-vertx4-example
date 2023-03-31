@@ -51,7 +51,7 @@ repositories {
   mavenCentral()
 }
 
-def vertxVersion = "4.4.0"
+def vertxVersion = "4.4.1"
 def junitJupiterVersion = "5.7.0"
 
 def mainVerticleName = "com.github.wjw.realtimeauctions.AuctionServiceVerticle"
@@ -62,7 +62,7 @@ application {
 }
 
 ext {
-  redisson = [version : '3.20.0']
+  redisson = [version : '3.20.1']
 }
 
 dependencies {
