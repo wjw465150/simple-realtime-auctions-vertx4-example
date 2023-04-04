@@ -27,6 +27,7 @@ import io.vertx.core.Promise;
 import io.vertx.core.eventbus.DeliveryOptions;
 import io.vertx.core.eventbus.Message;
 import io.vertx.core.eventbus.MessageConsumer;
+import io.vertx.core.http.HttpServerOptions;
 import io.vertx.core.impl.VertxInternal;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.spi.cluster.ClusterManager;
@@ -146,7 +147,11 @@ public class AuctionServiceVerticle extends AbstractVerticle {
         router.route("/eventbus/*").subRouter(eventBusHandler()); //安装处理event-bus的子路由
         router.route("/api/*").subRouter(auctionApiRouter()); //安装处理竞价的子路由
 
-        vertx.createHttpServer()
+        HttpServerOptions serverOptions = new HttpServerOptions();
+        serverOptions.setMaxWebSocketFrameSize(2*1024*1024);  //Set the maximum WebSocket frames size
+        serverOptions.setAcceptBacklog(5000);
+        serverOptions.setSoLinger(0); //Socket关闭后，底层Socket立即关闭
+        vertx.createHttpServer(serverOptions)
             .requestHandler(router)
             .listen(json.getInteger("http.port", PORT))
             .onSuccess(server -> {
