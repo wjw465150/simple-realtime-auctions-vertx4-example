@@ -47,7 +47,7 @@ targetCompatibility = "11"
 
 repositories {
   mavenLocal()
-  maven { url "https://maven.aliyun.com/nexus/content/groups/public/" }  //优先使用阿里的镜像
+  //maven { url "https://maven.aliyun.com/nexus/content/groups/public/" }  //优先使用阿里的镜像
   mavenCentral()
 }
 
@@ -71,8 +71,8 @@ dependencies {
     implementation "io.vertx:vertx-web"
     
     implementation "io.vertx:vertx-config"
-    implementation "io.vertx:vertx-zookeeper"
-    
+    implementation 'com.github.wjw465150:vertx-cluster-redis:4.4.1.1'
+        
     implementation "com.fasterxml.jackson.core:jackson-databind"
 
     implementation("org.redisson:redisson:${redisson.version}") {
