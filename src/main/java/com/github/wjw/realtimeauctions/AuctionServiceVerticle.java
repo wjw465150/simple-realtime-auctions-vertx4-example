@@ -66,7 +66,7 @@ public class AuctionServiceVerticle extends AbstractVerticle {
 
   private static final String USER_AND_PAGE_MAP_NAME = "UserAndPage";
   //key是userId, value是一个JSON对象(里面key是socketUri,value是pageId)
-  //服务器与客户端的User之间的point-to_point通信,有可能用户打开多个page,通信落在不同的服务器上,所有不能是local的
+  //服务器与客户端的User之间的point-to_point通信,有可能用户打开多个page,通信落在不同的服务器上,所以不能是local的
   private RMap<String, JsonObject> userIdAndSocketUri_PageRMap;
 
   public AuctionServiceVerticle() {
@@ -129,6 +129,7 @@ public class AuctionServiceVerticle extends AbstractVerticle {
         logger.info(MessageFormat.format("Start Vertx App profile:{0},instance:{1}", profile, instancesCount.get()));
         this.config().mergeIn(json, true);
         this.config().put("profile", profile);
+        vertx.getOrCreateContext().put("redis", redisson);
 
         userIdAndSocketUri_PageRMap = redisson.getMap(profile + "_" + USER_AND_PAGE_MAP_NAME);
 
