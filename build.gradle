@@ -1,4 +1,4 @@
-//@wjw_note: 根据传进来的profile系统属性来打包.例如: gradlew clean build -x test -Dprofile=test
+//@wjw_note: 根据传进来的profile系统属性来打包.例如: gradlew clean build -x test -Dprofile=dev
 //@wjw_note: 单jar运行: java -Dprofile=test -jar build\libs\simple-realtime-auctions-vertx3-example-1.0-test-fat
 
 plugins {
@@ -71,7 +71,7 @@ dependencies {
     implementation "io.vertx:vertx-web"
     
     implementation "io.vertx:vertx-config"
-    implementation 'com.github.wjw465150:vertx-cluster-redis:4.4.1.1'
+    implementation "io.vertx:vertx-zookeeper"
         
     implementation "com.fasterxml.jackson.core:jackson-databind"
 
