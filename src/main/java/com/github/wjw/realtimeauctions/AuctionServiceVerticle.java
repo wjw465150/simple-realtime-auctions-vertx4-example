@@ -151,9 +151,10 @@ public class AuctionServiceVerticle extends AbstractVerticle {
 
         HttpServerOptions serverOptions = new HttpServerOptions();
         serverOptions.setMaxWebSocketFrameSize(2*1024*1024);  //Set the maximum WebSocket frames size
+        serverOptions.setMaxWebSocketMessageSize(4*serverOptions.getMaxWebSocketFrameSize());  //Set the maximum WebSocket message size
         serverOptions.setAcceptBacklog(5000);
         serverOptions.setSoLinger(0); //Socket关闭后，底层Socket立即关闭
-        vertx.createHttpServer()
+        vertx.createHttpServer(serverOptions)
             .requestHandler(router)
             .listen(json.getInteger("http.port", PORT))
             .onSuccess(server -> {
