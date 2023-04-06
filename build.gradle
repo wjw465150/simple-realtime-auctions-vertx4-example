@@ -71,7 +71,7 @@ dependencies {
     implementation "io.vertx:vertx-web"
     
     implementation "io.vertx:vertx-config"
-    implementation 'com.github.wjw465150:vertx-cluster-redis:4.4.1.1'
+    //implementation 'com.github.wjw465150:vertx-cluster-redis:4.4.1.1'
         
     implementation "com.fasterxml.jackson.core:jackson-databind"
 
