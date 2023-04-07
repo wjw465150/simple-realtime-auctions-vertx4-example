@@ -260,17 +260,12 @@ public class EventBusBridgeImpl implements Handler<SockJSSocket> {
             }
           };
           MessageConsumer<?> reg = eb.consumer(address).handler(handler);
-          //@wjw_add: 当注册完成后再发出BridgeEventType.REGISTERED事件
-          reg.completionHandler(v -> {
-            registrations.put(address, reg);
-            info.handlerCount++;
-            // Notify registration completed
+          registrations.put(address, reg);
+          info.handlerCount++;
+          // Notify registration completed
+          reg.completionHandler(v -> { //@wjw_add: 当注册完成后再发出BridgeEventType.REGISTERED事件
             checkCallHook(() -> new BridgeEventImpl(BridgeEventType.REGISTERED, rawMsg, sock));
           });
-//          registrations.put(address, reg);
-//          info.handlerCount++;
-//          // Notify registration completed
-//          checkCallHook(() -> new BridgeEventImpl(BridgeEventType.REGISTERED, rawMsg, sock));
         } else {
           // inbound match failed
           if (debug) {
@@ -365,12 +360,20 @@ public class EventBusBridgeImpl implements Handler<SockJSSocket> {
   private void clearSocketState(SockJSSocket sock, Map<String, MessageConsumer<?>> registrations) {
     // On close or exception unregister any handlers that haven't been unregistered
     for (MessageConsumer<?> registration : registrations.values()) {
-      registration.unregister();
-      checkCallHook(() ->
-        new BridgeEventImpl(
-          BridgeEventType.UNREGISTER,
-          new JsonObject().put("type", "unregister").put("address", registration.address()),
-          sock));
+//      registration.unregister();
+//      checkCallHook(() ->
+//        new BridgeEventImpl(
+//          BridgeEventType.UNREGISTER,
+//          new JsonObject().put("type", "unregister").put("address", registration.address()),
+//          sock));
+      //@wjw_add: 改成异步回调方式:
+      registration.unregister().onComplete(vVoid -> {
+        checkCallHook(() ->
+          new BridgeEventImpl(
+            BridgeEventType.UNREGISTER,
+            new JsonObject().put("type", "unregister").put("address", registration.address()),
+            sock));
+      });
     }
     // ensure that no timers remain active
     SockInfo info = sockInfos.remove(sock);

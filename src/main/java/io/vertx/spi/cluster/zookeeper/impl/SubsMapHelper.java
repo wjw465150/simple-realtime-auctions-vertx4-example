@@ -1,28 +1,5 @@
 package io.vertx.spi.cluster.zookeeper.impl;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.function.BiFunction;
-import java.util.function.Function;
-
-import org.apache.curator.framework.CuratorFramework;
-import org.apache.curator.framework.api.CuratorEventType;
-import org.apache.curator.framework.recipes.cache.ChildData;
-import org.apache.curator.framework.recipes.cache.TreeCache;
-import org.apache.curator.framework.recipes.cache.TreeCacheEvent;
-import org.apache.curator.framework.recipes.cache.TreeCacheListener;
-import org.apache.zookeeper.CreateMode;
-
 import io.vertx.core.CompositeFuture;
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
@@ -34,6 +11,19 @@ import io.vertx.core.impl.logging.LoggerFactory;
 import io.vertx.core.spi.cluster.NodeSelector;
 import io.vertx.core.spi.cluster.RegistrationInfo;
 import io.vertx.core.spi.cluster.RegistrationUpdateEvent;
+import org.apache.curator.framework.CuratorFramework;
+import org.apache.curator.framework.api.CuratorEventType;
+import org.apache.curator.framework.recipes.cache.ChildData;
+import org.apache.curator.framework.recipes.cache.TreeCache;
+import org.apache.curator.framework.recipes.cache.TreeCacheEvent;
+import org.apache.curator.framework.recipes.cache.TreeCacheListener;
+import org.apache.zookeeper.CreateMode;
+
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.function.BiFunction;
+import java.util.function.Function;
 
 public class SubsMapHelper implements TreeCacheListener {
 
@@ -52,8 +42,6 @@ public class SubsMapHelper implements TreeCacheListener {
   private static final Function<RegistrationInfo, String> valuePath = registrationInfo -> registrationInfo.nodeId() + "-" + registrationInfo.seq();
   private static final BiFunction<String, RegistrationInfo, String> fullPath = (address, registrationInfo) -> keyPath.apply(address) + "/" + valuePath.apply(registrationInfo);
 
-  private final ReadWriteLock republishLock = new ReentrantReadWriteLock();
-  
   public SubsMapHelper(CuratorFramework curator, VertxInternal vertx, NodeSelector nodeSelector, String nodeId) {
     this.curator = curator;
     this.vertx = vertx;
@@ -94,29 +82,6 @@ public class SubsMapHelper implements TreeCacheListener {
       }
     }
   }
-  
-  public void putUseLock(String address, RegistrationInfo registrationInfo) {
-    Lock readLock = republishLock.readLock();
-    readLock.lock();
-    try {
-      if (registrationInfo.localOnly()) {
-        localSubs.compute(address, (add, curr) -> addToSet(registrationInfo, curr));
-        fireRegistrationUpdateEvent(address);
-      } else {
-        try {
-          ownSubs.compute(address, (add, curr) -> addToSet(registrationInfo, curr));
-          
-          Buffer buffer = Buffer.buffer();
-          registrationInfo.writeToBuffer(buffer);
-          curator.create().orSetData().creatingParentContainersIfNeeded().withMode(CreateMode.EPHEMERAL).forPath(fullPath.apply(address, registrationInfo), buffer.getBytes());
-        } catch (Exception e) {
-          log.error(String.format("create subs address %s failed.", address), e);
-        }
-      }
-    } finally {
-      readLock.unlock();
-    }
-  }
 
   private Set<RegistrationInfo> addToSet(RegistrationInfo registrationInfo, Set<RegistrationInfo> curr) {
     Set<RegistrationInfo> res = curr != null ? curr : Collections.synchronizedSet(new LinkedHashSet<>());
@@ -125,37 +90,31 @@ public class SubsMapHelper implements TreeCacheListener {
   }
 
   public List<RegistrationInfo> get(String address) {
-    Lock readLock = republishLock.readLock();
-    readLock.lock();
-    try {
-      Map<String, ChildData> map = treeCache.getCurrentChildren(keyPath.apply(address));
-      Collection<ChildData> remote = (map == null) ? Collections.emptyList() : map.values();
-  
-      List<RegistrationInfo> list;
-      int size;
-      size = remote.size();
-      Set<RegistrationInfo> local = localSubs.get(address);
-      if (local != null) {
-        synchronized (local) {
-          size += local.size();
-          if (size == 0) {
-            return Collections.emptyList();
-          }
-          list = new ArrayList<>(size);
-          list.addAll(local);
+    Map<String, ChildData> map = treeCache.getCurrentChildren(keyPath.apply(address));
+    Collection<ChildData> remote = (map == null) ? Collections.emptyList() : map.values();
+
+    List<RegistrationInfo> list;
+    int size;
+    size = remote.size();
+    Set<RegistrationInfo> local = localSubs.get(address);
+    if (local != null) {
+      synchronized (local) {
+        size += local.size();
+        if (size == 0) {
+          return Collections.emptyList();
         }
-      } else if (size == 0) {
-        return Collections.emptyList();
-      } else {
         list = new ArrayList<>(size);
+        list.addAll(local);
       }
-      for (ChildData childData : remote) {
-        list.add(toRegistrationInfo(childData));
-      }
-      return list;
-    } finally {
-      readLock.unlock();
+    } else if (size == 0) {
+      return Collections.emptyList();
+    } else {
+      list = new ArrayList<>(size);
     }
+    for (ChildData childData : remote) {
+      list.add(toRegistrationInfo(childData));
+    }
+    return list;
   }
 
   private static RegistrationInfo toRegistrationInfo(ChildData childData) {
@@ -184,24 +143,6 @@ public class SubsMapHelper implements TreeCacheListener {
     } catch (Exception e) {
       log.error(String.format("remove subs address %s failed.", address), e);
       promise.fail(e);
-    }
-  }
-  
-  public void removeUseLock(String address, RegistrationInfo registrationInfo) {
-    Lock readLock = republishLock.readLock();
-    readLock.lock();
-    try {
-      if (registrationInfo.localOnly()) {
-        localSubs.computeIfPresent(address, (add, curr) -> removeFromSet(registrationInfo, curr));
-        fireRegistrationUpdateEvent(address);
-      } else {
-        ownSubs.computeIfPresent(address, (add, curr) -> removeFromSet(registrationInfo, curr));
-        curator.delete().guaranteed().forPath(fullPath.apply(address, registrationInfo));
-      }
-    } catch (Exception e) {
-      log.error(String.format("remove subs address %s failed.", address), e);
-    } finally {
-      readLock.unlock();
     }
   }
 

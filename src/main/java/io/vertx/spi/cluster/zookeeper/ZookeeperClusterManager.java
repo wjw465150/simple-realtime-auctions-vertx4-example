@@ -16,32 +16,6 @@
 
 package io.vertx.spi.cluster.zookeeper;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-import java.util.function.Function;
-import java.util.stream.Collectors;
-
-import org.apache.curator.RetryPolicy;
-import org.apache.curator.framework.CuratorFramework;
-import org.apache.curator.framework.CuratorFrameworkFactory;
-import org.apache.curator.framework.api.CuratorEventType;
-import org.apache.curator.framework.imps.CuratorFrameworkState;
-import org.apache.curator.framework.recipes.cache.PathChildrenCache;
-import org.apache.curator.framework.recipes.cache.PathChildrenCacheEvent;
-import org.apache.curator.framework.recipes.cache.PathChildrenCacheListener;
-import org.apache.curator.framework.recipes.locks.InterProcessSemaphoreMutex;
-import org.apache.curator.retry.ExponentialBackoffRetry;
-import org.apache.zookeeper.CreateMode;
-import org.apache.zookeeper.KeeperException;
-
 import io.vertx.core.CompositeFuture;
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
@@ -62,11 +36,35 @@ import io.vertx.core.spi.cluster.NodeSelector;
 import io.vertx.core.spi.cluster.RegistrationInfo;
 import io.vertx.spi.cluster.zookeeper.impl.ConfigUtil;
 import io.vertx.spi.cluster.zookeeper.impl.SubsMapHelper;
-import io.vertx.spi.cluster.zookeeper.impl.SubsOpSerializer;
 import io.vertx.spi.cluster.zookeeper.impl.ZKAsyncMap;
 import io.vertx.spi.cluster.zookeeper.impl.ZKCounter;
 import io.vertx.spi.cluster.zookeeper.impl.ZKLock;
 import io.vertx.spi.cluster.zookeeper.impl.ZKSyncMap;
+import org.apache.curator.RetryPolicy;
+import org.apache.curator.framework.CuratorFramework;
+import org.apache.curator.framework.CuratorFrameworkFactory;
+import org.apache.curator.framework.api.CuratorEventType;
+import org.apache.curator.framework.imps.CuratorFrameworkState;
+import org.apache.curator.framework.recipes.cache.PathChildrenCache;
+import org.apache.curator.framework.recipes.cache.PathChildrenCacheEvent;
+import org.apache.curator.framework.recipes.cache.PathChildrenCacheListener;
+import org.apache.curator.framework.recipes.locks.InterProcessSemaphoreMutex;
+import org.apache.curator.retry.ExponentialBackoffRetry;
+import org.apache.zookeeper.CreateMode;
+import org.apache.zookeeper.KeeperException;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * A cluster manager that uses Zookeeper
@@ -366,16 +364,12 @@ public class ZookeeperClusterManager implements ClusterManager, PathChildrenCach
 
   @Override
   public void addRegistration(String address, RegistrationInfo registrationInfo, Promise<Void> promise) {
-//    subsMapHelper.put(address, registrationInfo, promise);
-    SubsOpSerializer serializer = SubsOpSerializer.get(vertx.getOrCreateContext());
-    serializer.execute(subsMapHelper::putUseLock, address, registrationInfo, promise);
+    subsMapHelper.put(address, registrationInfo, promise);
   }
 
   @Override
   public void removeRegistration(String address, RegistrationInfo registrationInfo, Promise<Void> promise) {
-//    subsMapHelper.remove(address, registrationInfo, promise);
-    SubsOpSerializer serializer = SubsOpSerializer.get(vertx.getOrCreateContext());
-    serializer.execute(subsMapHelper::removeUseLock, address, registrationInfo, promise);
+    subsMapHelper.remove(address, registrationInfo, promise);
   }
 
   @Override
