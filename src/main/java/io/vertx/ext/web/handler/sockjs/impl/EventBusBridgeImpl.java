@@ -360,20 +360,15 @@ public class EventBusBridgeImpl implements Handler<SockJSSocket> {
   private void clearSocketState(SockJSSocket sock, Map<String, MessageConsumer<?>> registrations) {
     // On close or exception unregister any handlers that haven't been unregistered
     for (MessageConsumer<?> registration : registrations.values()) {
-//      registration.unregister();
-//      checkCallHook(() ->
-//        new BridgeEventImpl(
-//          BridgeEventType.UNREGISTER,
-//          new JsonObject().put("type", "unregister").put("address", registration.address()),
-//          sock));
-      //@wjw_add: 改成异步回调方式:
-      registration.unregister().onComplete(vVoid -> {
-        checkCallHook(() ->
-          new BridgeEventImpl(
-            BridgeEventType.UNREGISTER,
-            new JsonObject().put("type", "unregister").put("address", registration.address()),
-            sock));
-      });
+      if(registration.isRegistered()) {
+        registration.unregister().onComplete(vVoid -> {  //@wjw_add: 改成异步回调方式:
+          checkCallHook(() ->
+            new BridgeEventImpl(
+              BridgeEventType.UNREGISTER,
+              new JsonObject().put("type", "unregister").put("address", registration.address()),
+              sock));
+        });
+      }
     }
     // ensure that no timers remain active
     SockInfo info = sockInfos.remove(sock);
