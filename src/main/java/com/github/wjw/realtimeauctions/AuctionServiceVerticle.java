@@ -105,14 +105,15 @@ public class AuctionServiceVerticle extends AbstractVerticle {
       //@wjw_note: 加载log的配置文件!
       try {
         String log_config_path = json.getString("logging");
-        if(LogBackConfigLoader.load(log_config_path)) {
+        if (LogBackConfigLoader.load(log_config_path)) {
           logger.info("Logback configure file: " + log_config_path);
         }
       } catch (Exception e) {
         e.printStackTrace();
         startPromise.fail(e);
+        return;
       }
-      
+
       synchronized (AuctionServiceVerticle.class) {
         if (instancesCount.incrementAndGet() == 1) { //这里面只初始化静态变量
           //初始化redisson
@@ -150,7 +151,8 @@ public class AuctionServiceVerticle extends AbstractVerticle {
         router.route("/api/*").subRouter(auctionApiRouter()); //安装处理竞价的子路由
 
         HttpServerOptions serverOptions = new HttpServerOptions();
-        serverOptions.setMaxWebSocketFrameSize(2*1024*1024);  //Set the maximum WebSocket frames size
+        serverOptions.setMaxWebSocketFrameSize(2 * 1024 * 1024); //Set the maximum WebSocket frames size
+        serverOptions.setMaxWebSocketMessageSize(4 * serverOptions.getMaxWebSocketFrameSize()); //Set the maximum WebSocket message size
         serverOptions.setAcceptBacklog(5000);
         serverOptions.setSoLinger(0); //Socket关闭后，底层Socket立即关闭
         vertx.createHttpServer()
@@ -208,12 +210,12 @@ public class AuctionServiceVerticle extends AbstractVerticle {
 
         VertxInternal vertxInternal = (VertxInternal) vertx;
 
-        if(vertx.isClustered()==true) {
+        if (vertx.isClustered() == true) {
           ClusterManager clusterManager = vertxInternal.getClusterManager();
-          
+
           jsonResp.put("nodes", clusterManager.getNodes());
         }
-        
+
         promise.complete(Status.OK(jsonResp));
       } catch (Exception e) {
         // TODO Auto-generated catch block
@@ -226,8 +228,7 @@ public class AuctionServiceVerticle extends AbstractVerticle {
   /**
    * Event bus handler.
    * <p>
-   * 将 SockJS 处理程序桥接到 Vert.x 事件总线。 这基本上安装了一个内置的 SockJS 套接字处理程序， 它接收 SockJS
-   * 流量并将其桥接到事件总线， 从而允许您将服务器端 Vert.x 事件总线扩展到浏览器
+   * 将 SockJS 处理程序桥接到 Vert.x 事件总线。 这基本上安装了一个内置的 SockJS 套接字处理程序， 它接收 SockJS 流量并将其桥接到事件总线， 从而允许您将服务器端 Vert.x 事件总线扩展到浏览器
    * 
    * @return the router
    */
