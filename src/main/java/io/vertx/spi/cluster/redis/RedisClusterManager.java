@@ -237,9 +237,6 @@ public class RedisClusterManager implements ClusterManager, EntryCreatedListener
 
   private void addLocalNodeId() throws VertxException {
     clusterNodes = redisson.getMapCache(VERTX_CLUSTER_NODES, JsonJacksonCodec.INSTANCE);
-    if (nodeId != null) { //移除以前残留的
-      clusterNodes.remove(nodeId);
-    }
     clusterNodes.addListener(this);
     try {
       //Join to the cluster
@@ -284,6 +281,7 @@ public class RedisClusterManager implements ClusterManager, EntryCreatedListener
           //The redis instance has been passed using the constructor.
           if (customRedisCluster) {
             try {
+              redisson.getMapCache(VERTX_CLUSTER_NODES, JsonJacksonCodec.INSTANCE).remove(nodeId);  //移除以前残留的
               addLocalNodeId();
               prom.complete();
             } catch (VertxException e) {
@@ -296,6 +294,7 @@ public class RedisClusterManager implements ClusterManager, EntryCreatedListener
             if (this.redisson == null) {
               Config config = Config.fromJSON(conf.encode());
               this.redisson = Redisson.create(config);
+              redisson.getMapCache(VERTX_CLUSTER_NODES, JsonJacksonCodec.INSTANCE).remove(nodeId);  //移除以前残留的
             }
 
             nodeId = UUID.randomUUID().toString();
@@ -418,25 +417,12 @@ public class RedisClusterManager implements ClusterManager, EntryCreatedListener
 
     @Override
     public void onConnect(InetSocketAddress addr, NodeType nodeType) {
-      createThisNode();
-      List<Future> futures = new ArrayList<>();
-      for (Map.Entry<String, NodeInfo> entry : localNodeInfo.entrySet()) {
-        Promise promise = Promise.promise();
-        setNodeInfo(entry.getValue(), promise);
-        futures.add(promise.future());
-      }
-      CompositeFuture.all(futures).onComplete(ar -> {
-        if (ar.failed()) {
-          log.error("recover node info failed.", ar.cause());
-        }
-      });
+      redisClusterManager.join(Promise.promise());
     }
 
     @Override
     public void onDisconnect(InetSocketAddress addr, NodeType nodeType) {
-      joined = false;
-      locksCache.values().forEach(RedisLock::release);
-      locksCache.clear();
+      redisClusterManager.leave(Promise.promise());
     }
 
     @Override
