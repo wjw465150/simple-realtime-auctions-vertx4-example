@@ -5,7 +5,6 @@
  */
 package io.vertx.spi.cluster.redis.impl;
 
-import java.net.InetSocketAddress;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -19,11 +18,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 
-import org.redisson.Redisson;
 import org.redisson.api.RMultimapCache;
 import org.redisson.api.RedissonClient;
 import org.redisson.codec.JsonJacksonCodec;
-import org.redisson.connection.ConnectionListener;
 
 import io.vertx.core.CompositeFuture;
 import io.vertx.core.Future;
@@ -35,7 +32,7 @@ import io.vertx.core.spi.cluster.NodeSelector;
 import io.vertx.core.spi.cluster.RegistrationInfo;
 import io.vertx.core.spi.cluster.RegistrationUpdateEvent;
 
-public class SubsMapHelper implements ConnectionListener {
+public class SubsMapHelper {
   private static final Logger log = LoggerFactory.getLogger(SubsMapHelper.class);
 
   private final RedissonClient                               redisson;
@@ -46,8 +43,6 @@ public class SubsMapHelper implements ConnectionListener {
   private final ConcurrentMap<String, Set<RegistrationInfo>> ownSubs = new ConcurrentHashMap<>();
   private final ConcurrentMap<String, Set<RegistrationInfo>> localSubs = new ConcurrentHashMap<>();
 
-  private int redisConnectionListenerId;
-  
   private static final String VERTX_SUBS_NAME = "__vertx:subs";
 
   public SubsMapHelper(VertxInternal vertx, RedissonClient redisson, NodeSelector nodeSelector, String nodeId) {
@@ -57,8 +52,6 @@ public class SubsMapHelper implements ConnectionListener {
 
     this.nodeSelector = nodeSelector;
     this.nodeId = nodeId;
-
-    redisConnectionListenerId = ((Redisson) this.redisson).getServiceManager().getConnectionEventsHub().addListener(this);
   }
 
   public void updateSubsEntryExpiration(long ttl, TimeUnit ttlUnit) {
@@ -69,7 +62,7 @@ public class SubsMapHelper implements ConnectionListener {
   }
 
   public void close() {
-    ((Redisson) this.redisson).getServiceManager().getConnectionEventsHub().removeListener(redisConnectionListenerId);
+    //
   }
 
   public void put(String address, RegistrationInfo registrationInfo, Promise<Void> promise) {
@@ -174,8 +167,7 @@ public class SubsMapHelper implements ConnectionListener {
     nodeSelector.registrationsUpdated(new RegistrationUpdateEvent(address, get(address)));
   }
   
-  @Override
-  public void onConnect(InetSocketAddress addr) {
+  public void syncOwnSubs2Remote() {
     log.info(String.format("vertx node %s have reconnected to Redis", nodeId));
     vertx.runOnContext(aVoid -> {
       List<Future> futures = new ArrayList<>();
@@ -194,11 +186,6 @@ public class SubsMapHelper implements ConnectionListener {
         }
       });
     });
-  }
-
-  @Override
-  public void onDisconnect(InetSocketAddress addr) {
-    log.warn(String.format("vertx node %s which connected to Redis has lost", nodeId));
   }
 
 }

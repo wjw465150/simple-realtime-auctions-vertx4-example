@@ -246,14 +246,14 @@ public class RedisClusterManager implements ClusterManager, EntryCreatedListener
       redisConnectionListenerId = ((Redisson) this.redisson).getServiceManager().getConnectionEventsHub().addListener(new RedisConnectionListener(this));
 
       nodesTtlScheduler.scheduleAtFixedRate(() -> {
-        if (nodeId != null) {
+        if (joined && nodeId != null) {
           try {
             clusterNodes.updateEntryExpiration(nodeId, ENTRY_TTL, TimeUnit.SECONDS, 0, TimeUnit.SECONDS);
           } catch (Exception e) {
           }
         }
 
-        if (subsMapHelper != null) {
+        if (joined && subsMapHelper != null) {
           try {
             subsMapHelper.updateSubsEntryExpiration(ENTRY_TTL, TimeUnit.SECONDS);
           } catch (Exception e) {
@@ -421,7 +421,11 @@ public class RedisClusterManager implements ClusterManager, EntryCreatedListener
 
     @Override
     public void onConnect(InetSocketAddress addr, NodeType nodeType) {
-      redisClusterManager.join(Promise.promise());
+      Promise<Void> promise = Promise.promise();
+      redisClusterManager.join(promise);
+      promise.future().onComplete(vVoid -> {
+        subsMapHelper.syncOwnSubs2Remote();
+      });
     }
 
     @Override
