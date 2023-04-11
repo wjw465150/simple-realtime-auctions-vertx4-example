@@ -281,7 +281,9 @@ public class RedisClusterManager implements ClusterManager, EntryCreatedListener
           //The redis instance has been passed using the constructor.
           if (customRedisCluster) {
             try {
-              redisson.getMapCache(VERTX_CLUSTER_NODES, JsonJacksonCodec.INSTANCE).remove(nodeId);  //移除以前残留的
+              if(nodeId != null) {
+                redisson.getMapCache(VERTX_CLUSTER_NODES, JsonJacksonCodec.INSTANCE).remove(nodeId);  //移除以前残留的
+              }
               addLocalNodeId();
               prom.complete();
             } catch (VertxException e) {
@@ -294,7 +296,9 @@ public class RedisClusterManager implements ClusterManager, EntryCreatedListener
             if (this.redisson == null) {
               Config config = Config.fromJSON(conf.encode());
               this.redisson = Redisson.create(config);
-              redisson.getMapCache(VERTX_CLUSTER_NODES, JsonJacksonCodec.INSTANCE).remove(nodeId);  //移除以前残留的
+              if(nodeId != null) {
+                redisson.getMapCache(VERTX_CLUSTER_NODES, JsonJacksonCodec.INSTANCE).remove(nodeId);  //移除以前残留的
+              }
             }
 
             nodeId = UUID.randomUUID().toString();
@@ -422,7 +426,11 @@ public class RedisClusterManager implements ClusterManager, EntryCreatedListener
 
     @Override
     public void onDisconnect(InetSocketAddress addr, NodeType nodeType) {
-      redisClusterManager.leave(Promise.promise());
+      Promise<Void> promise = Promise.promise();
+      redisClusterManager.leave(promise);
+      promise.future().onComplete(vVoid -> {
+        redisson = null;
+      });
     }
 
     @Override
