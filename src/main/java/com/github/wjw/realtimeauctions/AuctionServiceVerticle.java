@@ -48,7 +48,7 @@ import io.vertx.ext.web.handler.sockjs.SockJSHandler;
 import io.vertx.ext.web.handler.sockjs.SockJSHandlerOptions;
 
 public class AuctionServiceVerticle extends AbstractVerticle {
-  public final static Integer PORT              = 9090;
+  public static final Integer PORT              = 9090;
   private static final String SEC_WEBSOCKET_KEY = "sec-websocket-key";
 
   //记录被实例化的次数
@@ -95,9 +95,7 @@ public class AuctionServiceVerticle extends AbstractVerticle {
     } //<-校验是否指定了`profile`参数,和相应的配置文件是否存在!
 
     //加载配置文件
-    ConfigStoreOptions     classpathStore = new ConfigStoreOptions()
-        .setType("file")
-        .setConfig(new JsonObject().put("path", vertx_config_path));
+    ConfigStoreOptions     classpathStore = new ConfigStoreOptions().setType("file").setConfig(new JsonObject().put("path", vertx_config_path));
     ConfigRetrieverOptions configOptions  = new ConfigRetrieverOptions().addStore(classpathStore);
     ConfigRetriever        retriever      = ConfigRetriever.create(vertx, configOptions);
 
@@ -105,14 +103,14 @@ public class AuctionServiceVerticle extends AbstractVerticle {
       //@wjw_note: 加载log的配置文件!
       try {
         String log_config_path = json.getString("logging");
-        if(LogBackConfigLoader.load(log_config_path)) {
+        if (LogBackConfigLoader.load(log_config_path)) {
           logger.info("Logback configure file: " + log_config_path);
         }
       } catch (Exception e) {
         e.printStackTrace();
         startPromise.fail(e);
       }
-      
+
       synchronized (AuctionServiceVerticle.class) {
         if (instancesCount.incrementAndGet() == 1) { //这里面只初始化静态变量
           //初始化redisson
@@ -150,8 +148,8 @@ public class AuctionServiceVerticle extends AbstractVerticle {
         router.route("/api/*").subRouter(auctionApiRouter()); //安装处理竞价的子路由
 
         HttpServerOptions serverOptions = new HttpServerOptions();
-        serverOptions.setMaxWebSocketFrameSize(2*1024*1024);  //Set the maximum WebSocket frames size
-        serverOptions.setMaxWebSocketMessageSize(4*serverOptions.getMaxWebSocketFrameSize());  //Set the maximum WebSocket message size
+        serverOptions.setMaxWebSocketFrameSize(2 * 1024 * 1024); //Set the maximum WebSocket frames size
+        serverOptions.setMaxWebSocketMessageSize(4 * serverOptions.getMaxWebSocketFrameSize()); //Set the maximum WebSocket message size
         serverOptions.setAcceptBacklog(5000);
         serverOptions.setSoLinger(0); //Socket关闭后，底层Socket立即关闭
         vertx.createHttpServer(serverOptions)
@@ -197,8 +195,7 @@ public class AuctionServiceVerticle extends AbstractVerticle {
       }
     });
 
-    HealthCheckHandler healthCheckHandlerEventBus = HealthCheckHandler
-        .createWithHealthChecks(HealthChecks.create(vertx));
+    HealthCheckHandler healthCheckHandlerEventBus = HealthCheckHandler.createWithHealthChecks(HealthChecks.create(vertx));
     router.get("/health/vertx").handler(healthCheckHandlerEventBus);
     healthCheckHandlerEventBus.register("vertx", promise -> {
       try {
@@ -209,12 +206,12 @@ public class AuctionServiceVerticle extends AbstractVerticle {
 
         VertxInternal vertxInternal = (VertxInternal) vertx;
 
-        if(vertx.isClustered()==true) {
+        if (vertx.isClustered() == true) {
           ClusterManager clusterManager = vertxInternal.getClusterManager();
-          
+
           jsonResp.put("nodes", clusterManager.getNodes());
         }
-        
+
         promise.complete(Status.OK(jsonResp));
       } catch (Exception e) {
         // TODO Auto-generated catch block
@@ -227,8 +224,7 @@ public class AuctionServiceVerticle extends AbstractVerticle {
   /**
    * Event bus handler.
    * <p>
-   * 将 SockJS 处理程序桥接到 Vert.x 事件总线。 这基本上安装了一个内置的 SockJS 套接字处理程序， 它接收 SockJS
-   * 流量并将其桥接到事件总线， 从而允许您将服务器端 Vert.x 事件总线扩展到浏览器
+   * 将 SockJS 处理程序桥接到 Vert.x 事件总线。 这基本上安装了一个内置的 SockJS 套接字处理程序， 它接收 SockJS 流量并将其桥接到事件总线， 从而允许您将服务器端 Vert.x 事件总线扩展到浏览器
    * 
    * @return the router
    */
@@ -266,8 +262,7 @@ public class AuctionServiceVerticle extends AbstractVerticle {
     return sockJSHandler.bridge(bridgeOptions, event -> {
       if (event.type() == BridgeEventType.SOCKET_CREATED) {
         //TODO: 对`event.socket().headers().get()`获取,键是不区分大小写的!
-        String socketUri = (event.socket().uri() + "-" + event.socket().headers().get(SEC_WEBSOCKET_KEY))
-            .replaceAll("/", ".");
+        String socketUri = (event.socket().uri() + "-" + event.socket().headers().get(SEC_WEBSOCKET_KEY)).replace("/", ".");
 
         logger.info(MessageFormat.format("A WebSocket was created,socketId: `{0}`", socketUri));
       } else if (event.type() == BridgeEventType.SOCKET_CLOSED) {
@@ -275,12 +270,9 @@ public class AuctionServiceVerticle extends AbstractVerticle {
       } else if (event.type() == BridgeEventType.REGISTERED) {
         onSocketRegistered(event);
       } else if (event.type() == BridgeEventType.UNREGISTER) { //当直接关闭页面时会先触发UNREGISTER事件,再触发SOCKET_CLOSED事件
-        String socketUri = (event.socket().uri() + "-" + event.socket().headers().get(SEC_WEBSOCKET_KEY))
-            .replaceAll("/", ".");
+        String socketUri = (event.socket().uri() + "-" + event.socket().headers().get(SEC_WEBSOCKET_KEY)).replace("/", ".");
 
-        logger.info(MessageFormat.format("A WebSocket was unregister,uri: `{0}`, rawMessage: `{1}`",
-            socketUri,
-            event.getRawMessage().encode()));
+        logger.info(MessageFormat.format("A WebSocket was unregister,uri: `{0}`, rawMessage: `{1}`", socketUri, event.getRawMessage().encode()));
       }
 
       event.complete(true); //使用“true”完成`Promise`以启用进一步处理
@@ -288,13 +280,10 @@ public class AuctionServiceVerticle extends AbstractVerticle {
   }
 
   private void onSocketRegistered(BridgeEvent event) {
-    String socketUri = (event.socket().uri() + "-" + event.socket().headers().get(SEC_WEBSOCKET_KEY)).replaceAll("/",
-        ".");
-    logger.info(MessageFormat
-        .format("A WebSocket was registered,uri: `{0}`, rawMessage: `{1}`", socketUri, event.getRawMessage().encode()));
+    String socketUri = (event.socket().uri() + "-" + event.socket().headers().get(SEC_WEBSOCKET_KEY)).replace("/", ".");
+    logger.info(MessageFormat.format("A WebSocket was registered,uri: `{0}`, rawMessage: `{1}`", socketUri, event.getRawMessage().encode()));
 
-    if (event.getRawMessage().getString("address").startsWith("auction.") == false || event.getRawMessage()
-        .getJsonObject("headers") == null) {
+    if (event.getRawMessage().getString("address").startsWith("auction.") == false || event.getRawMessage().getJsonObject("headers") == null) {
       return;
     }
 
@@ -321,8 +310,7 @@ public class AuctionServiceVerticle extends AbstractVerticle {
   }
 
   private void onSocketClosed(BridgeEvent event) {
-    String socketUri = (event.socket().uri() + "-" + event.socket().headers().get(SEC_WEBSOCKET_KEY)).replaceAll("/",
-        ".");
+    String socketUri = (event.socket().uri() + "-" + event.socket().headers().get(SEC_WEBSOCKET_KEY)).replaceAll("/", ".");
     logger.info(MessageFormat.format("A WebSocket was closed,uri: `{0}`", socketUri));
 
     String pageId = socketUriAndPageIdMap.remove(socketUri);
@@ -355,7 +343,7 @@ public class AuctionServiceVerticle extends AbstractVerticle {
   private void userMsgHandler(Message<JsonObject> message) {
     String userId = message.headers().get("userId");
 
-    String rMsg = MessageFormat.format("收到了: address: `{0}`, body: `{1}`, rawMessage: `{3}`",
+    String rMsg = MessageFormat.format("收到了: address: `{0}`, body: `{1}`, rawMessage: `{2}`",
         message.address(),
         message.body(),
         dumpMessage(message));
