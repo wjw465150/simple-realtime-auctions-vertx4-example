@@ -39,7 +39,9 @@
     }
   },
   "mongo": {
+    "useObjectId" : true,  //此参数用来支持 ObjectId 的持久化和检索
     "db_name" : "test",
+    
     // Single Cluster Settings
     "host" : "127.0.0.1",
     "port" : 27017,      
