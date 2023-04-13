@@ -36,7 +36,14 @@ public class AuctionRepositoryMongo {
 
     MongoClient mongoClient = vertx.getOrCreateContext().<MongoClient> get("mongo");
 
-    mongoClient.findOne(auctionIdMapNamePrefix + auctionId, null, new JsonObject().put("id", auctionId), res -> {
+// 通过ObjectId来查询    
+//    JsonObject filter = new JsonObject().put("_id", new JsonObject().put("$oid", "6437a08fd9590ce1b46df40c"));
+//    mongoClient.findOne(auctionIdMapNamePrefix + auctionId, filter, null, res -> {
+//      JsonObject jsonAuction = res.result();
+//      System.out.println(jsonAuction);
+//    });
+    
+    mongoClient.findOne(auctionIdMapNamePrefix + auctionId, new JsonObject().put("id", auctionId), null, res -> {
       JsonObject jsonAuction = res.result();
       if (jsonAuction == null || jsonAuction.isEmpty()) {
         promise.complete(Optional.empty());
