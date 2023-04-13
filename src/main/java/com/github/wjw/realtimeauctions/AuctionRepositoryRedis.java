@@ -15,11 +15,11 @@ import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 
-public class AuctionRepository {
+public class AuctionRepositoryRedis {
   private Vertx  vertx;
   private String auctionIdMapNamePrefix;
 
-  public AuctionRepository(Vertx vertx) {
+  public AuctionRepositoryRedis(Vertx vertx) {
     this.vertx = vertx;
     auctionIdMapNamePrefix = vertx.getOrCreateContext().config().getString("profile") + "_auction_";
   }

@@ -69,11 +69,12 @@ dependencies {
     implementation platform("io.vertx:vertx-stack-depchain:$vertxVersion")  //Vert.x Stack Depchain,集中了Vert.x的依赖版本管理,这样后面在导入Vert.x模块时就不必再填写版本号了!
     implementation "io.vertx:vertx-core"
     implementation "io.vertx:vertx-web"
+    implementation "com.fasterxml.jackson.core:jackson-databind"
     
     implementation "io.vertx:vertx-config"
     implementation "io.vertx:vertx-zookeeper"
-        
-    implementation "com.fasterxml.jackson.core:jackson-databind"
+    implementation "io.vertx:vertx-mongo-client"
+    
 
     implementation("org.redisson:redisson:${redisson.version}") {
       exclude group: "io.netty" //, module: "junit"

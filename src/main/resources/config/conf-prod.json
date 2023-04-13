@@ -37,5 +37,45 @@
       "keepAlive": false,
       "tcpNoDelay": true
     }
-  }
+  },
+  "mongo": {
+    "db_name" : "test",
+    // Single Cluster Settings
+    "host" : "127.0.0.1",
+    "port" : 27017,      
+  
+    // Connection Pool Settings
+    "maxPoolSize" : 50,                
+    "minPoolSize" : 25,                
+    "maxIdleTimeMS" : 300000,          
+    "maxLifeTimeMS" : 3600000,         
+    "waitQueueTimeoutMS" : 10000,      
+    "maintenanceFrequencyMS" : 2000,   
+    "maintenanceInitialDelayMS" : 500, 
+    
+    // Credentials / Auth
+    "username"   : "user",     
+    "password"   : "111111", 
+    "authSource" : "test",  //与授权用户关联的数据库名称。默认值为db_name的值
+    // Auth mechanism
+    "authMechanism"     : null,        
+    
+    // Socket Settings
+    "connectTimeoutMS" : 300000, 
+    "socketTimeoutMS"  : 100000, 
+    "sendBufferSize"    : 8192,  
+    "receiveBufferSize" : 8192,  
+    
+    // Server Settings
+    "heartbeatFrequencyMS"    : 1000, 
+    "minHeartbeatFrequencyMS" :  500, 
+    
+    // SSL Settings
+    "ssl" : false,                       
+    "sslInvalidHostNameAllowed" : false, 
+    "trustAll" : false,                  
+    "keyPath" : "key.pem",               
+    "certPath" : "cert.pem",             
+    "caPath" : "ca.pem"                 
+  }  
 }

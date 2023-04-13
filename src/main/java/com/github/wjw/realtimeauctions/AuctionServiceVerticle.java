@@ -36,6 +36,7 @@ import io.vertx.ext.bridge.PermittedOptions;
 import io.vertx.ext.healthchecks.HealthCheckHandler;
 import io.vertx.ext.healthchecks.HealthChecks;
 import io.vertx.ext.healthchecks.Status;
+import io.vertx.ext.mongo.MongoClient;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.handler.BodyHandler;
 import io.vertx.ext.web.handler.ErrorHandler;
@@ -55,7 +56,9 @@ public class AuctionServiceVerticle extends AbstractVerticle {
   private static AtomicInteger instancesCount = new AtomicInteger(0);
   //redis客户端(单实例就行)
   private static RedissonClient redisson;
-
+  //MongoDB客户端(单实例就行)
+  private static MongoClient mongoClient;
+  
   private Logger logger;
   private String profile;
 
@@ -123,11 +126,16 @@ public class AuctionServiceVerticle extends AbstractVerticle {
             startPromise.fail(e);
             return;
           }
+          
+          //初始化mongoClient
+          JsonObject  jsonMongoConfig = json.getJsonObject("mongo");
+          this.mongoClient = MongoClient.createShared(vertx, jsonMongoConfig);
         }
         logger.info(MessageFormat.format("Start Vertx App profile:{0},instance:{1}", profile, instancesCount.get()));
         this.config().mergeIn(json, true);
         this.config().put("profile", profile);
         vertx.getOrCreateContext().put("redis", redisson);
+        vertx.getOrCreateContext().put("mongo", mongoClient);
 
         userIdAndSocketUri_PageRMap = redisson.getMap(profile + "_" + USER_AND_PAGE_MAP_NAME);
 
@@ -369,9 +377,10 @@ public class AuctionServiceVerticle extends AbstractVerticle {
    * @return the router
    */
   private Router auctionApiRouter() {
-    AuctionRepository repository = new AuctionRepository(vertx);
-    AuctionValidator  validator  = new AuctionValidator(repository);
-    AuctionHandler    handler    = new AuctionHandler(repository, validator);
+    AuctionRepositoryRedis repositoryRedis = new AuctionRepositoryRedis(vertx);
+    AuctionRepositoryMongo repositoryMongo = new AuctionRepositoryMongo(vertx);
+    AuctionValidator  validator  = new AuctionValidator(repositoryRedis);
+    AuctionHandler    handler    = new AuctionHandler(repositoryRedis,repositoryMongo, validator);
 
     Router router = Router.router(vertx);
     router.route().handler(BodyHandler.create()); //`BodyHandler` 允许您检索请求正文、限制正文大小和处理文件上传。

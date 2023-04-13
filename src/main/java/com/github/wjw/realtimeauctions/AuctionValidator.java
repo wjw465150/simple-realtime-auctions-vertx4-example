@@ -10,9 +10,9 @@ import io.vertx.core.Promise;
 
 public class AuctionValidator {
 
-  private final AuctionRepository repository;
+  private final AuctionRepositoryRedis repository;
 
-  public AuctionValidator(AuctionRepository repository) {
+  public AuctionValidator(AuctionRepositoryRedis repository) {
     this.repository = repository;
   }
 
