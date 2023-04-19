@@ -38,8 +38,8 @@ function registerHandlerForUpdateCurrentPriceAndFeed() {
     */
     pageId = 'page.' + userId + '.' + Date.now() + "_" + randomrange(1000, 9000);
 
-        document.getElementById('current_user').innerHTML = userId; 
-        document.getElementById('current_page').innerHTML = pageId; 
+    document.getElementById('current_user').innerHTML = userId; 
+    document.getElementById('current_page').innerHTML = pageId; 
 
     eventBus.registerHandler('auction.' + auction_id, { userId: userId, pageId: pageId }, function(error, message) {  //设置一个处理器以接收消息
       document.getElementById('current_price').innerHTML = 'EUR ' + message.body.price;
@@ -49,6 +49,12 @@ function registerHandlerForUpdateCurrentPriceAndFeed() {
     //通过 pageId 收到服务器发过来的
     eventBus.registerHandler(pageId, { userId: userId, pageId: pageId }, function(error, message) {  //设置一个处理器以接收消息
       console.log(message);
+      
+      //BASE64字符串 Deserialize 成 JSON
+      var bytes1 = Base64.toUint8Array(message.body.data)
+      var jsonMessage = msgpack.deserialize(bytes1);
+      console.log("jsonMessage:"+JSON.stringify(jsonMessage));
+      
       document.getElementById('p2pReceive').value += JSON.stringify(message) + '\n';
     });
 
@@ -61,7 +67,14 @@ function registerHandlerForUpdateCurrentPriceAndFeed() {
 
 //给指定用户下打开的所有Page都发消息
 function sendPointMsg() {
-  eventBus.send('user.' + userId, "与当前用户的私聊", { userId: userId, pageId: pageId });
+  var jsonMsg = {msg: "与当前用户的私聊"}
+  //1. JSON Serialize to byte array,类型是Uint8Array
+  var bytes1 = msgpack.serialize(jsonMsg);
+  //2. 编码成BASE64字符串
+  var base64Str1 = Base64.fromUint8Array(bytes1);
+
+  
+  eventBus.send('user.' + userId, {'data': base64Str1}, { userId: userId, pageId: pageId });
 }
 
 function sendPubMsg() {

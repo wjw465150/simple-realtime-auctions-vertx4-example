@@ -356,7 +356,9 @@ public class AuctionServiceVerticle extends AbstractVerticle {
         message.body(),
         dumpMessage(message));
     logger.info(rMsg);
-
+    JsonObject jsonMsg = MsgPackService.decodeFromMagPack(message.body().getString("data"));
+    logger.info("jsonMsg:"+jsonMsg);
+    
     //查询出这个userId下的所关联的所有的pageId,然后转发过去.
 
     JsonObject jsSocketAndPageId = userIdAndSocketUri_PageRMap.get(userId);

@@ -75,7 +75,9 @@ dependencies {
     implementation "io.vertx:vertx-zookeeper"
     implementation "io.vertx:vertx-mongo-client"
     
-
+    //集成MsgPack
+    implementation 'org.msgpack:jackson-dataformat-msgpack:0.9.3'
+    
     implementation("org.redisson:redisson:${redisson.version}") {
       exclude group: "io.netty" //, module: "junit"
     }
