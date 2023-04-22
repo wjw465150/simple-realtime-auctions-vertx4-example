@@ -5,6 +5,8 @@ debug: 当此属性设置为true时，将打印出logback内部日志信息，�
 configuration 子节点为 appender、logger、root
 -->
 <configuration scan="true" scanPeriod="60 seconds" debug="false">
+  <contextName>PrototypeBackend_prod</contextName>
+  
   <property name="LOG_DIR" value="./logs" />
   <property name="LOG_PATTERN" value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - [%method,%line] - %msg%n" />
   
@@ -31,7 +33,7 @@ configuration 子节点为 appender、logger、root
     
     <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
       <!-- rollover daily -->
-      <fileNamePattern>${LOG_DIR}/info_prod_%d{yyyy-MM-dd}_%i.log</fileNamePattern>
+      <fileNamePattern>${LOG_DIR}/${CONTEXT_NAME}_info_%d{yyyy-MM-dd}_%i.log</fileNamePattern>
       <!-- each file should be at most 100MB, keep 30 days worth of history, but at most 10GB -->
       <maxFileSize>100MB</maxFileSize>    
       <maxHistory>30</maxHistory>
@@ -68,7 +70,7 @@ configuration 子节点为 appender、logger、root
     
     <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
       <!-- rollover daily -->
-      <fileNamePattern>${LOG_DIR}/warn_prod_%d{yyyy-MM-dd}_%i.log</fileNamePattern>
+      <fileNamePattern>${LOG_DIR}/${CONTEXT_NAME}_warn_%d{yyyy-MM-dd}_%i.log</fileNamePattern>
       <!-- each file should be at most 100MB, keep 30 days worth of history, but at most 10GB -->
       <maxFileSize>100MB</maxFileSize>    
       <maxHistory>30</maxHistory>
@@ -119,7 +121,7 @@ configuration 子节点为 appender、logger、root
     
     <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
       <!-- rollover daily -->
-      <fileNamePattern>${LOG_DIR}/error_prod_%d{yyyy-MM-dd}_%i.log</fileNamePattern>
+      <fileNamePattern>${LOG_DIR}/${CONTEXT_NAME}_error_%d{yyyy-MM-dd}_%i.log</fileNamePattern>
       <!-- each file should be at most 100MB, keep 30 days worth of history, but at most 10GB -->
       <maxFileSize>100MB</maxFileSize>    
       <maxHistory>30</maxHistory>
