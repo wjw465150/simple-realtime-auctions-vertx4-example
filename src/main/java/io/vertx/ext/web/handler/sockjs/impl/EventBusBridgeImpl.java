@@ -1,33 +1,12 @@
 /*
- * Copyright 2014 Red Hat, Inc.
+ * Copyright (c) 2011-2023 Contributors to the Eclipse Foundation
  *
- *  All rights reserved. This program and the accompanying materials
- *  are made available under the terms of the Eclipse Public License v1.0
- *  and Apache License v2.0 which accompanies this distribution.
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0, or the Apache License, Version 2.0
+ * which is available at https://www.apache.org/licenses/LICENSE-2.0.
  *
- *  The Eclipse Public License is available at
- *  http://www.eclipse.org/legal/epl-v10.html
- *
- *  The Apache License v2.0 is available at
- *  http://www.opensource.org/licenses/apache2.0.php
- *
- *  You may elect to redistribute this code under either of these licenses.
- */
-
-/*
- * Copyright (c) 2011-2013 The original author or authors
- * ------------------------------------------------------
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * and Apache License v2.0 which accompanies this distribution.
- *
- *     The Eclipse Public License is available at
- *     http://www.eclipse.org/legal/epl-v10.html
- *
- *     The Apache License v2.0 is available at
- *     http://www.opensource.org/licenses/apache2.0.php
- *
- * You may elect to redistribute this code under either of these licenses.
+ * SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
  */
 
 package io.vertx.ext.web.handler.sockjs.impl;
@@ -36,10 +15,10 @@ import io.vertx.core.*;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.eventbus.*;
 import io.vertx.core.http.HttpHeaders;
-import io.vertx.core.json.DecodeException;
-import io.vertx.core.json.JsonObject;
 import io.vertx.core.impl.logging.Logger;
 import io.vertx.core.impl.logging.LoggerFactory;
+import io.vertx.core.json.DecodeException;
+import io.vertx.core.json.JsonObject;
 import io.vertx.ext.auth.User;
 import io.vertx.ext.auth.authorization.Authorization;
 import io.vertx.ext.auth.authorization.AuthorizationProvider;
@@ -47,7 +26,9 @@ import io.vertx.ext.auth.authorization.PermissionBasedAuthorization;
 import io.vertx.ext.bridge.BridgeEventType;
 import io.vertx.ext.bridge.PermittedOptions;
 import io.vertx.ext.web.Session;
-import io.vertx.ext.web.handler.sockjs.*;
+import io.vertx.ext.web.handler.sockjs.BridgeEvent;
+import io.vertx.ext.web.handler.sockjs.SockJSBridgeOptions;
+import io.vertx.ext.web.handler.sockjs.SockJSSocket;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -260,11 +241,16 @@ public class EventBusBridgeImpl implements Handler<SockJSSocket> {
             }
           };
           MessageConsumer<?> reg = eb.consumer(address).handler(handler);
-          registrations.put(address, reg);
-          info.handlerCount++;
-          // Notify registration completed
-          reg.completionHandler(v -> { //@wjw_add: 当注册完成后再发出BridgeEventType.REGISTERED事件
-            checkCallHook(() -> new BridgeEventImpl(BridgeEventType.REGISTERED, rawMsg, sock));
+          registrations.put(address, reg);  //@wjw_note: 一定要放在`reg.completionHandler()`上面
+          info.handlerCount++;              //@wjw_note: 一定要放在`reg.completionHandler()`上面
+          reg.completionHandler(ar -> {  //@wjw_add: 当注册完成后再发出BridgeEventType.REGISTERED事件
+            if (ar.succeeded()) {
+              // Notify registration completed
+              checkCallHook(() -> new BridgeEventImpl(BridgeEventType.REGISTERED, rawMsg, sock));
+            } else {
+              LOG.warn("Cannot register handler for address " + address, ar.cause());
+              replyError(sock, "registration_failure");
+            }
           });
         } else {
           // inbound match failed
@@ -360,15 +346,14 @@ public class EventBusBridgeImpl implements Handler<SockJSSocket> {
   private void clearSocketState(SockJSSocket sock, Map<String, MessageConsumer<?>> registrations) {
     // On close or exception unregister any handlers that haven't been unregistered
     for (MessageConsumer<?> registration : registrations.values()) {
-      if(registration.isRegistered()) {
-        registration.unregister().onComplete(vVoid -> {  //@wjw_add: 改成异步回调方式:
-          checkCallHook(() ->
-            new BridgeEventImpl(
+      vertx.setTimer(1 * 1000, tm -> {  //@wjw_add: 延迟1秒钟防止还没注册完成!
+        registration.unregister().onComplete(vVoid -> { //@wjw_add: 改成异步回调方式:
+          checkCallHook(() -> new BridgeEventImpl(
               BridgeEventType.UNREGISTER,
               new JsonObject().put("type", "unregister").put("address", registration.address()),
               sock));
         });
-      }
+      });
     }
     // ensure that no timers remain active
     SockInfo info = sockInfos.remove(sock);
