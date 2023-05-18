@@ -5,10 +5,11 @@ debug: 当此属性设置为true时，将打印出logback内部日志信息，�
 configuration 子节点为 appender、logger、root
 -->
 <configuration scan="true" scanPeriod="60 seconds" debug="false">
-  <contextName>PrototypeBackend_prod</contextName>
+  <contextName>WSDemo_prod</contextName>
+  <conversionRule conversionWord="mdc" converterClass="io.reactiverse.contextual.logging.LogbackConverter"/>
   
   <property name="LOG_DIR" value="./logs" />
-  <property name="LOG_PATTERN" value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - [%method,%line] - %msg%n" />
+  <property name="LOG_PATTERN" value="[%mdc{socketUri}] %d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - [%method,%line] - %msg%n" />
   
   <!-- 控制台输出 -->
   <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">

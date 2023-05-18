@@ -19,6 +19,7 @@ import org.redisson.config.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import io.reactiverse.contextual.logging.ContextualData;
 import io.vertx.config.ConfigRetriever;
 import io.vertx.config.ConfigRetrieverOptions;
 import io.vertx.config.ConfigStoreOptions;
@@ -271,6 +272,7 @@ public class AuctionServiceVerticle extends AbstractVerticle {
       if (event.type() == BridgeEventType.SOCKET_CREATED) {
         //TODO: 对`event.socket().headers().get()`获取,键是不区分大小写的!
         String socketUri = (event.socket().uri() + "-" + event.socket().headers().get(SEC_WEBSOCKET_KEY)).replace("/", ".");
+        ContextualData.put("socketUri", socketUri);  // 添加日志跟踪MDC
 
         logger.info(MessageFormat.format("A WebSocket was created,socketId: `{0}`", socketUri));
       } else if (event.type() == BridgeEventType.SOCKET_CLOSED) {

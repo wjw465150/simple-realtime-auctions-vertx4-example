@@ -47,7 +47,7 @@ targetCompatibility = "11"
 
 repositories {
   mavenLocal()
-  //maven { url "https://maven.aliyun.com/nexus/content/groups/public/" }  //优先使用阿里的镜像
+  maven { url "https://maven.aliyun.com/nexus/content/groups/public/" }  //优先使用阿里的镜像
   mavenCentral()
 }
 
@@ -83,8 +83,10 @@ dependencies {
     }
     
     implementation "ch.qos.logback:logback-classic:1.2.10"
-    //集成logstash.logback
+    //集成 logstash.logback
     implementation 'net.logstash.logback:logstash-logback-encoder:7.3'
+    // 集成 MDC 日志记录
+    implementation 'io.reactiverse:reactiverse-contextual-logging:1.1.2'
     
     implementation "io.vertx:vertx-health-check"
     
