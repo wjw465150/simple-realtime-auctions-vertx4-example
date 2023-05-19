@@ -438,8 +438,7 @@ public class AuctionServiceVerticle extends AbstractVerticle {
   //EventBus MDC 日志记录 拦截器
   private void addEventBusMdcLogInterceptor() {
     //使用Jackson全局忽略JSON中的未知属性
-    io.vertx.core.json.jackson.DatabindCodec codec = (io.vertx.core.json.jackson.DatabindCodec) io.vertx.core.json.Json.CODEC;
-    ObjectMapper mapper = codec.mapper();
+    ObjectMapper mapper = io.vertx.core.json.jackson.DatabindCodec.mapper();
     mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
     
     vertx.eventBus().addOutboundInterceptor(event -> {
