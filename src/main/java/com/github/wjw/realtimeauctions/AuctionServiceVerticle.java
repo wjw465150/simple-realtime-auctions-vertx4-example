@@ -19,6 +19,9 @@ import org.redisson.config.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import io.reactiverse.contextual.logging.ContextualData;
 import io.vertx.config.ConfigRetriever;
 import io.vertx.config.ConfigRetrieverOptions;
@@ -434,18 +437,23 @@ public class AuctionServiceVerticle extends AbstractVerticle {
   
   //EventBus MDC 日志记录 拦截器
   private void addEventBusMdcLogInterceptor() {
+    //使用Jackson全局忽略JSON中的未知属性
+    io.vertx.core.json.jackson.DatabindCodec codec = (io.vertx.core.json.jackson.DatabindCodec) io.vertx.core.json.Json.CODEC;
+    ObjectMapper mapper = codec.mapper();
+    mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+    
     vertx.eventBus().addOutboundInterceptor(event -> {
-      String clientSessionId = ContextualData.get(Constants.TRACE_ID);
-      if (clientSessionId != null) {
-        event.message().headers().add(Constants.TRACE_ID, clientSessionId);
+      String traceId = ContextualData.get(Constants.TRACE_ID);
+      if (traceId != null) {
+        event.message().headers().add(Constants.TRACE_ID, traceId);
       }
       event.next();
     });
 
     vertx.eventBus().addInboundInterceptor(event -> {
-      String clientSessionId = event.message().headers().get(Constants.TRACE_ID);
-      if (clientSessionId != null) {
-        ContextualData.put(Constants.TRACE_ID, clientSessionId);
+      String traceId = event.message().headers().get(Constants.TRACE_ID);
+      if (traceId != null) {
+        ContextualData.put(Constants.TRACE_ID, traceId);
       }
       event.next();
     });
