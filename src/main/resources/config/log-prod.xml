@@ -9,7 +9,7 @@ configuration 子节点为 appender、logger、root
   <conversionRule conversionWord="mdc" converterClass="io.reactiverse.contextual.logging.LogbackConverter"/>
   
   <property name="LOG_DIR" value="./logs" />
-  <property name="LOG_PATTERN" value="[%mdc{socketUri}] %d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - [%method,%line] - %msg%n" />
+  <property name="LOG_PATTERN" value="[%mdc{TRACE_ID}] %d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - [%method,%line] - %msg%n" />
   
   <!-- 控制台输出 -->
   <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">

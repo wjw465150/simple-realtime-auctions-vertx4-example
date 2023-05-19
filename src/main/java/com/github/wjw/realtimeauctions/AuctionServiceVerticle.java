@@ -117,6 +117,9 @@ public class AuctionServiceVerticle extends AbstractVerticle {
 
       synchronized (AuctionServiceVerticle.class) {
         if (instancesCount.incrementAndGet() == 1) { //这里面只初始化静态变量
+          //EventBus MDC 日志记录 拦截器
+          addEventBusMdcLogInterceptor();
+          
           //初始化redisson
           String jsonRedissonConfig = json.getJsonObject("redis").encode();
           try {
@@ -272,7 +275,7 @@ public class AuctionServiceVerticle extends AbstractVerticle {
       if (event.type() == BridgeEventType.SOCKET_CREATED) {
         //TODO: 对`event.socket().headers().get()`获取,键是不区分大小写的!
         String socketUri = (event.socket().uri() + "-" + event.socket().headers().get(SEC_WEBSOCKET_KEY)).replace("/", ".");
-        ContextualData.put("socketUri", socketUri);  // 添加日志跟踪MDC
+        ContextualData.put(Constants.TRACE_ID, socketUri);  // 添加日志跟踪MDC
 
         logger.info(MessageFormat.format("A WebSocket was created,socketId: `{0}`", socketUri));
       } else if (event.type() == BridgeEventType.SOCKET_CLOSED) {
@@ -428,4 +431,24 @@ public class AuctionServiceVerticle extends AbstractVerticle {
         message.isSend(),
         message.body());
   }
+  
+  //EventBus MDC 日志记录 拦截器
+  private void addEventBusMdcLogInterceptor() {
+    vertx.eventBus().addOutboundInterceptor(event -> {
+      String clientSessionId = ContextualData.get(Constants.TRACE_ID);
+      if (clientSessionId != null) {
+        event.message().headers().add(Constants.TRACE_ID, clientSessionId);
+      }
+      event.next();
+    });
+
+    vertx.eventBus().addInboundInterceptor(event -> {
+      String clientSessionId = event.message().headers().get(Constants.TRACE_ID);
+      if (clientSessionId != null) {
+        ContextualData.put(Constants.TRACE_ID, clientSessionId);
+      }
+      event.next();
+    });
+  }
+  
 }
