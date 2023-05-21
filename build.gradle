@@ -70,6 +70,8 @@ dependencies {
     implementation "io.vertx:vertx-core"
     implementation "io.vertx:vertx-web"
     implementation "com.fasterxml.jackson.core:jackson-databind"
+    // Java8 Date & Time
+    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
     
     implementation "io.vertx:vertx-config"
     implementation "io.vertx:vertx-zookeeper"

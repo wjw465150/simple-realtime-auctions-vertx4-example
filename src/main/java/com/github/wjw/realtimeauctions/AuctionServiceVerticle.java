@@ -21,6 +21,7 @@ import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 import io.reactiverse.contextual.logging.ContextualData;
 import io.vertx.config.ConfigRetriever;
@@ -437,9 +438,11 @@ public class AuctionServiceVerticle extends AbstractVerticle {
   
   //EventBus MDC 日志记录 拦截器
   private void addEventBusMdcLogInterceptor() {
-    //使用Jackson全局忽略JSON中的未知属性
     ObjectMapper mapper = io.vertx.core.json.jackson.DatabindCodec.mapper();
+    //使用Jackson全局忽略JSON中的未知属性
     mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+    //Vert.x 在对LocalDate或LocalDateTime进行序列化时需要将jsr310的日期时间模块注册到ObjectMapper中生效。
+    mapper.registerModule(new JavaTimeModule());
     
     vertx.eventBus().addOutboundInterceptor(event -> {
       String traceId = ContextualData.get(Constants.TRACE_ID);
