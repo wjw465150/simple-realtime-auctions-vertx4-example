@@ -346,14 +346,16 @@ public class EventBusBridgeImpl implements Handler<SockJSSocket> {
   private void clearSocketState(SockJSSocket sock, Map<String, MessageConsumer<?>> registrations) {
     // On close or exception unregister any handlers that haven't been unregistered
     for (MessageConsumer<?> registration : registrations.values()) {
-      if(registration.isRegistered()) {  //@wjw_add: 先判断是否注册了
-        registration.unregister();
-        checkCallHook(() ->
-          new BridgeEventImpl(
-            BridgeEventType.UNREGISTER,
-            new JsonObject().put("type", "unregister").put("address", registration.address()),
-            sock));
-      }
+      vertx.setTimer(1 * 1000, tm -> {  //@wjw_add: 延迟1秒钟防止还没注册完成!
+        if(registration.isRegistered()) {  //@wjw_add: 先判断是否注册了
+          registration.unregister();
+          checkCallHook(() ->
+            new BridgeEventImpl(
+              BridgeEventType.UNREGISTER,
+              new JsonObject().put("type", "unregister").put("address", registration.address()),
+              sock));
+        }
+      });
     }
     // ensure that no timers remain active
     SockInfo info = sockInfos.remove(sock);

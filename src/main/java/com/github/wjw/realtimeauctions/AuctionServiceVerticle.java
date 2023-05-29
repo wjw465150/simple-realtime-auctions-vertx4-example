@@ -32,6 +32,7 @@ import io.vertx.core.Promise;
 import io.vertx.core.eventbus.DeliveryOptions;
 import io.vertx.core.eventbus.Message;
 import io.vertx.core.eventbus.MessageConsumer;
+import io.vertx.core.http.HttpServer;
 import io.vertx.core.http.HttpServerOptions;
 import io.vertx.core.impl.VertxInternal;
 import io.vertx.core.json.JsonObject;
@@ -76,6 +77,9 @@ public class AuctionServiceVerticle extends AbstractVerticle {
   //key是userId, value是一个JSON对象(里面key是socketUri,value是pageId)
   //服务器与客户端的User之间的point-to_point通信,有可能用户打开多个page,通信落在不同的服务器上,所以不能是local的
   private RMap<String, JsonObject> userIdAndSocketUri_PageRMap;
+  
+  //WebSocket 服务器
+  private HttpServer wsHttpServer;
 
   public AuctionServiceVerticle() {
     this.logger = LoggerFactory.getLogger(this.getClass());
@@ -168,8 +172,9 @@ public class AuctionServiceVerticle extends AbstractVerticle {
         serverOptions.setMaxWebSocketMessageSize(4 * serverOptions.getMaxWebSocketFrameSize()); //Set the maximum WebSocket message size
         serverOptions.setAcceptBacklog(5000);
         serverOptions.setSoLinger(0); //Socket关闭后，底层Socket立即关闭
-        vertx.createHttpServer(serverOptions)
-            .requestHandler(router)
+        wsHttpServer = vertx.createHttpServer(serverOptions);
+        
+        wsHttpServer.requestHandler(router)
             .listen(json.getInteger("http.port", PORT))
             .onSuccess(server -> {
               logger.info("Realtime Auctions Server start OK! listen port: " + server.actualPort());
@@ -183,6 +188,8 @@ public class AuctionServiceVerticle extends AbstractVerticle {
 
   @Override
   public void stop(Promise<Void> stopPromise) throws Exception {
+    wsHttpServer.close();
+    
     if (instancesCount.decrementAndGet() == 0) {
       redisson.shutdown();
     }
