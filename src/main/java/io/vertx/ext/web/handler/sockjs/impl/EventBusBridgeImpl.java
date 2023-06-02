@@ -34,6 +34,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -346,7 +347,13 @@ public class EventBusBridgeImpl implements Handler<SockJSSocket> {
   private void clearSocketState(SockJSSocket sock, Map<String, MessageConsumer<?>> registrations) {
     // On close or exception unregister any handlers that haven't been unregistered
     for (MessageConsumer<?> registration : registrations.values()) {
-      vertx.setTimer(1 * 1000, tm -> {  //@wjw_add: 延迟1秒钟防止还没注册完成!
+      vertx.executeBlocking(promise -> {
+        try {  //@wjw_add: 延迟一些时间防止还没注册完成!
+          TimeUnit.MILLISECONDS.sleep(100);
+        } catch (Exception e) {
+        }
+        promise.complete();
+      },false, res -> {
         if(registration.isRegistered()) {  //@wjw_add: 先判断是否注册了
           registration.unregister();
           checkCallHook(() ->
