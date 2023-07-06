@@ -276,7 +276,11 @@ public class EventBusBridgeImpl implements Handler<SockJSSocket> {
           MessageConsumer<?> registration = registrations.remove(address);
           if (registration != null) {
             SockInfo info = sockInfos.get(sock);
-            registration.unregister();
+            registration.completionHandler(ar -> {
+              if (ar.succeeded()) {
+                registration.unregister();
+              }
+            });
             info.handlerCount--;
           }
         } else {
@@ -347,6 +351,13 @@ public class EventBusBridgeImpl implements Handler<SockJSSocket> {
   private void clearSocketState(SockJSSocket sock, Map<String, MessageConsumer<?>> registrations) {
     // On close or exception unregister any handlers that haven't been unregistered
     for (MessageConsumer<?> registration : registrations.values()) {
+      registration.unregister();
+      checkCallHook(() ->
+        new BridgeEventImpl(
+          BridgeEventType.UNREGISTER,
+          new JsonObject().put("type", "unregister").put("address", registration.address()),
+          sock));
+/* @wjw_note: 这种情况交给ZookeeperClusterManager的SubsMapHelper的remove方法来重试
       vertx.executeBlocking(promise -> {
         try {  //@wjw_add: 延迟一些时间防止还没注册完成!
           TimeUnit.MILLISECONDS.sleep(100);
@@ -363,6 +374,7 @@ public class EventBusBridgeImpl implements Handler<SockJSSocket> {
               sock));
         }
       });
+*/      
     }
     // ensure that no timers remain active
     SockInfo info = sockInfos.remove(sock);
