@@ -41,8 +41,8 @@ version = "1.0-${profileName}"
 
 description = """使用Websockets和Vert.x进行实时竞价"""
 
-sourceCompatibility = "11"
-targetCompatibility = "11"
+sourceCompatibility = "17"
+targetCompatibility = "17"
 [compileJava, compileTestJava]*.options*.encoding = 'UTF-8'
 
 repositories {
@@ -51,7 +51,7 @@ repositories {
   mavenCentral()
 }
 
-def vertxVersion = "4.4.2"
+def vertxVersion = "4.4.6"
 def junitJupiterVersion = "5.7.0"
 
 def mainVerticleName = "com.github.wjw.realtimeauctions.AuctionServiceVerticle"

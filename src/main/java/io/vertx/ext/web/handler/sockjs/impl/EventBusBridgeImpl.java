@@ -357,25 +357,11 @@ public class EventBusBridgeImpl implements Handler<SockJSSocket> {
           BridgeEventType.UNREGISTER,
           new JsonObject().put("type", "unregister").put("address", registration.address()),
           sock));
-/* @wjw_note: 这种情况交给ZookeeperClusterManager的SubsMapHelper的remove方法来重试
-      vertx.executeBlocking(promise -> {
-        try {  //@wjw_add: 延迟一些时间防止还没注册完成!
-          TimeUnit.MILLISECONDS.sleep(100);
-        } catch (Exception e) {
-        }
-        promise.complete();
-      },false, res -> {
-        if(registration.isRegistered()) {  //@wjw_add: 先判断是否注册了
-          registration.unregister();
-          checkCallHook(() ->
-            new BridgeEventImpl(
-              BridgeEventType.UNREGISTER,
-              new JsonObject().put("type", "unregister").put("address", registration.address()),
-              sock));
-        }
-      });
-*/      
     }
+    // @wjw_note: 这里是否要: registrations.clear(); 
+    // @wjw_note: 但是作者说: the map and its entries should be collected after the SockJS socket is closed.
+    // @wjw_note: https://github.com/vert-x3/vertx-web/issues/2446
+    
     // ensure that no timers remain active
     SockInfo info = sockInfos.remove(sock);
     if (info != null) {
