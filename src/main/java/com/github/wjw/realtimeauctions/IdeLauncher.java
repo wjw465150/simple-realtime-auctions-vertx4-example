@@ -7,9 +7,9 @@ import io.vertx.core.Launcher;
 import io.vertx.core.Vertx;
 import io.vertx.core.VertxOptions;
 
-public class IdeLauncher extends Launcher{
+public class IdeLauncher extends Launcher {
   public static void main(String[] args) {
-    new Launcher().dispatch(new IdeLauncher(),args);
+    new Launcher().dispatch(new IdeLauncher(), args);
   }
 
   /**
@@ -20,26 +20,29 @@ public class IdeLauncher extends Launcher{
   @Override
   public void beforeStartingVertx(VertxOptions options) {
     {//@wjw_note: 设置环境为开发环境,关闭文件缓存和模板缓存!
-      //1. During development you might want to disable template caching so that the template gets reevaluated on each request. 
-      //In order to do this you need to set the system property: vertxweb.environment or environment variable VERTXWEB_ENVIRONMENT to dev or development. 
-      //By default caching is always enabled.
+     //1. During development you might want to disable template caching so that the template gets reevaluated on each request. 
+     //In order to do this you need to set the system property: vertxweb.environment or environment variable VERTXWEB_ENVIRONMENT to dev or development. 
+     //By default caching is always enabled.
 
-       //2. these system properties are evaluated once when the io.vertx.core.file.FileSystemOptions class is loaded, 
-       //so these properties should be set before loading this class or as a JVM system property when launching it.
+      //2. these system properties are evaluated once when the io.vertx.core.file.FileSystemOptions class is loaded, 
+      //so these properties should be set before loading this class or as a JVM system property when launching it.
 
-       System.setProperty("vertxweb.environment", "dev");
-       //@wjw_note: 调试发现,当有众多的小js,css文件时,,Vertx总是用原始源刷新缓存中存储的版本,严重影响性能      
-       System.setProperty("vertx.disableFileCaching", "true");
-     }
+      System.setProperty("vertxweb.environment", "dev");
+      //@wjw_note: 调试发现,当有众多的小js,css文件时,,Vertx总是用原始源刷新缓存中存储的版本,严重影响性能      
+      System.setProperty("vertx.disableFileCaching", "true");
+    }
 
-     //防止调试的时候出现`BlockedThreadChecker`日志信息
-     long         blockedThreadCheckInterval = 60 * 60 * 1000L;
-     if (System.getProperties().getProperty("vertx.options.blockedThreadCheckInterval") != null) {
-       blockedThreadCheckInterval = Long.valueOf(System.getProperties().getProperty("vertx.options.blockedThreadCheckInterval"));
-     }
-     options.setBlockedThreadCheckInterval(blockedThreadCheckInterval);
+    //防止调试的时候出现`BlockedThreadChecker`日志信息
+    boolean isInDebug = java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().toString().contains("-agentlib:jdwp");
+    if (isInDebug) {
+      long blockedThreadCheckInterval = 60 * 60 * 1000L;
+      if (System.getProperties().getProperty("vertx.options.blockedThreadCheckInterval") != null) {
+        blockedThreadCheckInterval = Long.valueOf(System.getProperties().getProperty("vertx.options.blockedThreadCheckInterval"));
+      }
+      options.setBlockedThreadCheckInterval(blockedThreadCheckInterval);
+    }
   }
- 
+
   /**
    * Hook for sub-classes of {@link Launcher} after the vertx instance is started.
    *
@@ -54,7 +57,7 @@ public class IdeLauncher extends Launcher{
     }
 
   }
-  
+
   private void startIdeConsole(Vertx vertx) {
     Thread inputThread = new Thread(() -> {
       boolean loopz = true;
@@ -77,5 +80,5 @@ public class IdeLauncher extends Launcher{
     inputThread.setDaemon(true);
     inputThread.start();
   }
-  
+
 }
