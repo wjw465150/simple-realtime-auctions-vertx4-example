@@ -52,7 +52,7 @@ repositories {
 }
 
 def vertxVersion = "4.4.6"
-def junitJupiterVersion = "5.7.0"
+def junitJupiterVersion = "5.10.1"
 
 def mainVerticleName = "com.github.wjw.realtimeauctions.AuctionServiceVerticle"
 def launcherClassName = "io.vertx.core.Launcher"
